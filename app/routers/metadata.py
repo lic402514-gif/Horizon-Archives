@@ -463,44 +463,57 @@ async def create_book_with_file(
     # Upload file to OSS and register asset
     asset = None
     if tmp_path and filename:
-        tp = Path(tmp_path)
-        if tp.exists():
-            ext = file_ext or filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
-            size = int(file_size) if file_size else tp.stat().st_size
-            oss_key = f"books/{book.id}/{filename}"
+        # Security: tmp_path must be inside the system temp dir to prevent arbitrary file read
+        import tempfile
+        allowed_root = Path(tempfile.gettempdir()).resolve()
+        try:
+            tp = Path(tmp_path).resolve()
+        except Exception:
+            raise HTTPException(400, "Invalid tmp_path")
+        if not str(tp).startswith(str(allowed_root) + os.sep):
+            raise HTTPException(400, "tmp_path must be inside the system temp directory")
+        if not tp.exists() or not tp.is_file():
+            raise HTTPException(400, "tmp_path does not exist or is not a file")
+        # Reject suspicious filenames
+        if ".." in filename or "/" in filename or "\\" in filename:
+            raise HTTPException(400, "Invalid filename")
 
-            # Upload to OSS first, fall back to local
-            provider = "local"
-            try:
-                import oss2
-                from app.auth import OSS_ENDPOINT, OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET, OSS_BUCKET_NAME
-                auth = oss2.Auth(OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET)
-                bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET_NAME)
-                bucket.put_object_from_file(oss_key, str(tp))
-                provider = "oss"
-                try: tp.unlink()
-                except: pass
-            except Exception:
-                # OSS failed — save locally
-                dest = Path(STORAGE_DIR) / oss_key
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                tp.rename(dest)
+        ext = file_ext or filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        size = int(file_size) if file_size else tp.stat().st_size
+        oss_key = f"books/{book.id}/{filename}"
 
-            asset = Asset(
-                filename=filename, extension=ext, mime_type=file_mime,
-                size=size, object_key=oss_key, asset_type="ebook",
-                provider=provider, upload_by=_u.id, status="active",
-            )
-            db.add(asset); db.flush()
+        # Upload to OSS first, fall back to local
+        provider = "local"
+        try:
+            import oss2
+            from app.auth import OSS_ENDPOINT, OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET, OSS_BUCKET_NAME
+            auth = oss2.Auth(OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET)
+            bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET_NAME)
+            bucket.put_object_from_file(oss_key, str(tp))
+            provider = "oss"
+            try: tp.unlink()
+            except: pass
+        except Exception:
+            # OSS failed — save locally
+            dest = Path(STORAGE_DIR) / oss_key
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            tp.rename(dest)
 
-            # BookAsset link
-            ba = BookAsset(book_id=book.id, asset_id=asset.id, relation_type="ebook")
-            db.add(ba)
+        asset = Asset(
+            filename=filename, extension=ext, mime_type=file_mime,
+            size=size, object_key=oss_key, asset_type="ebook",
+            provider=provider, upload_by=_u.id, status="active",
+        )
+        db.add(asset); db.flush()
 
-            # File record for downloads
-            f = FileModel(book_id=book.id, format=ext.upper(),
-                          oss_key=oss_key, size=size)
-            db.add(f)
+        # BookAsset link
+        ba = BookAsset(book_id=book.id, asset_id=asset.id, relation_type="ebook")
+        db.add(ba)
+
+        # File record for downloads
+        f = FileModel(book_id=book.id, format=ext.upper(),
+                      oss_key=oss_key, size=size)
+        db.add(f)
 
     db.commit()
     db.refresh(book)

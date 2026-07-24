@@ -8,9 +8,11 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./data/library.db
       - STORAGE_DIR=./data/files
-      - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=admin123
-      - SITE_URL=https://library.example.com
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set in .env}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env}
+      - SITE_URL=${SITE_URL:-http://localhost:8000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8000}
     volumes:
       - library_data:/app/data
       - ./dist:/app/dist

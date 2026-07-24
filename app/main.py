@@ -37,8 +37,10 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Personal Library", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
-                   allow_methods=["*"], allow_headers=["*"])
+_allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000").split(",") if o.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=_allowed_origins, allow_credentials=True,
+                   allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+                   allow_headers=["Authorization", "Content-Type", "X-Requested-With"])
 if STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static-assets")
 
@@ -114,7 +116,8 @@ def get_sts_token(_u: User = Depends(require_user)):
         "expiration": f"{time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(expire))}",
         "conditions": [
             {"bucket": OSS_BUCKET_NAME},
-            ["starts-with", "$key", ""],
+            ["starts-with", "$key", "books/"],
+            ["content-length-range", 1, 104857600],
             {"success_action_status": "200"},
         ]
     })

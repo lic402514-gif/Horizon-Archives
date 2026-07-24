@@ -33,7 +33,7 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     resp = JSONResponse({"access_token": token, "token_type": "bearer"})
     resp.set_cookie(
         key="session", value=token,
-        httponly=False,  # JS needs to read for admin API calls via header
+        httponly=True,  # Prevent XSS token theft
         max_age=86400, samesite="lax", path="/"
     )
     return resp
@@ -168,17 +168,27 @@ def ban_user(
 
 @router.put("/users/{user_id}", response_model=UserOut)
 def update_user(user_id: int, body: dict,
+                current_user: User = Depends(require_user),
                 db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Only admins can modify other users; users can only modify themselves
+    is_admin = current_user.role == "admin"
+    if not is_admin and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify other users")
+
     for field in ["username","email","qq","phone","wechat","public_fields"]:
         if field in body:
             setattr(user, field, body[field])
-    if "status" in body and body["status"] in ("ACTIVE","DISABLED","BANNED"):
-        user.status = body["status"]
-    if "role" in body and body["role"] in ("admin","user"):
-        user.role = body["role"]
+
+    # Only admins can change status or role
+    if is_admin:
+        if "status" in body and body["status"] in ("ACTIVE","DISABLED","BANNED"):
+            user.status = body["status"]
+        if "role" in body and body["role"] in ("admin","user"):
+            user.role = body["role"]
     db.commit()
     db.refresh(user)
     from app.schemas import UserOut
