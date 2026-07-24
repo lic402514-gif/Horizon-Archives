@@ -117,8 +117,8 @@ def cast_election_vote(election_id: int, body: dict,
                        db: Session = Depends(get_db)):
     e = db.query(Election).filter(Election.id == election_id).first()
     if not e or e.status != "voting": raise HTTPException(400,"Not in voting phase")
-    from datetime import datetime as dt, timezone
-    if e.voting_end and dt.now(timezone.utc) > e.voting_end: raise HTTPException(400,"Voting ended")
+    from datetime import datetime as dt
+    if e.voting_end and dt.now() > e.voting_end: raise HTTPException(400,"Voting ended")
 
     if e.vote_type == "approval":
         oids = body.get("candidate_ids") or [body.get("candidate_id")]

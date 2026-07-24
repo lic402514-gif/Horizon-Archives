@@ -338,8 +338,9 @@ async def extract_and_upload(
                 "confidence": "low", "clc_matches": clc_matches}
 
     # Try AI first
+    import asyncio
     try:
-        ai_result = _call_ai(SYSTEM_PROMPT, query)
+        ai_result = await asyncio.to_thread(_call_ai, SYSTEM_PROMPT, query)
         metadata.update(ai_result)
     except HTTPException:
         # AI unavailable — use keyword match for CLC as best guess
@@ -472,11 +473,11 @@ async def create_book_with_file(
             # Upload to OSS first, fall back to local
             provider = "local"
             try:
-                import oss2
+                import oss2, asyncio
                 from app.auth import OSS_ENDPOINT, OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET, OSS_BUCKET_NAME
                 auth = oss2.Auth(OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET)
                 bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET_NAME)
-                bucket.put_object_from_file(oss_key, str(tp))
+                await asyncio.to_thread(bucket.put_object_from_file, oss_key, str(tp))
                 provider = "oss"
                 try: tp.unlink()
                 except: pass

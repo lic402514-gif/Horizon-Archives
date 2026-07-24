@@ -97,11 +97,16 @@ def me(_r: Request, db: Session = Depends(get_db)):
     if not token:
         return {"username": None}
     try:
-        from app.auth import get_current_user, create_access_token
-        user = get_current_user(token, db)
+        from app.auth import get_current_user
+        user = get_current_user(token=token, db=db)
+        if user is None:
+            return {"username": None}
         return {"username": user.username, "role": user.role, "id": user.id}
     except Exception:
-        return {"username": None}@app.get("/api/oss/sts")
+        return {"username": None}
+
+
+@app.get("/api/oss/sts")
 def get_sts_token(_u: User = Depends(require_user)):
     """Return STS temporary credentials for OSS direct upload."""
     import json, hmac, hashlib, base64, time
@@ -263,7 +268,7 @@ def track_page_view(path: str = "/", request: Request = None, db: Session = Depe
     if session_key:
         try:
             from app.auth import get_current_user
-            user = get_current_user(session_key, db)
+            user = get_current_user(token=session_key, db=db)
             if user: user_id = user.id
         except: pass
     

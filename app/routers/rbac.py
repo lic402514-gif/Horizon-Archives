@@ -11,16 +11,16 @@ router = APIRouter(prefix="/api", tags=["rbac"])
 @router.get("/roles")
 def list_roles(_u: User = Depends(require_permission("role.read")), db: Session = Depends(get_db)):
     roles = db.query(Role).all()
-    return [{"id": r.id, "name": r.name, "description": r.description,
+    return [{"id": r.id, "name": r.name, "description": r.display_name,
              "permissions": [p.code for p in r.permissions]} for r in roles]
 
 
 @router.post("/roles", status_code=201)
 def create_role(body: dict, _u: User = Depends(require_permission("role.create")),
                 db: Session = Depends(get_db)):
-    r = Role(name=body["name"], description=body.get("description", ""))
+    r = Role(name=body["name"], display_name=body.get("description", ""))
     db.add(r); db.commit(); db.refresh(r)
-    return {"id": r.id, "name": r.name, "description": r.description}
+    return {"id": r.id, "name": r.name, "description": r.display_name}
 
 
 @router.delete("/roles/{role_id}")

@@ -79,6 +79,7 @@ class Book(Base):
     pub_year = Column(Integer, nullable=True)
     category_code = Column(String(10), ForeignKey("categories.code"), nullable=True)
     summary = Column(Text, nullable=True)
+    cover_url = Column(String(500), nullable=True)
     status = Column(String(20), default="published")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -574,3 +575,15 @@ class Message(Base):
 
     sender = relationship("User", foreign_keys=[sender_id], backref="sent_messages")
     receiver = relationship("User", foreign_keys=[receiver_id], backref="received_messages")
+
+
+# ── Quotes ──────────────────────────────────────────────────────────────────
+
+class Quote(Base):
+    __tablename__ = "quotes"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    content = Column(Text, nullable=False)
+    author = Column(String(200), nullable=True)
+    asset_id = Column(Integer, nullable=True)
+    sort_order = Column(Integer, default=0)
+    status = Column(String(20), default="active")

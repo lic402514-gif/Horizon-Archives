@@ -262,6 +262,7 @@ def update_book(
 @router.delete("/books/{book_id}", status_code=204)
 def delete_book(
     book_id: int,
+    request: Request,
     _u: User = Depends(require_permission("book.create")),
     db: Session = Depends(get_db),
 ):
@@ -539,6 +540,7 @@ async def batch_books(
 @router.post("/books/batch-create", status_code=201)
 def single_create(
     body: dict,
+    request: Request,
     _u: User = Depends(require_permission("book.create")),
     db: Session = Depends(get_db),
 ):
@@ -862,6 +864,7 @@ def update_book(
 @router.delete("/books/{book_id}", status_code=204)
 def delete_book(
     book_id: int,
+    request: Request,
     _u: User = Depends(require_permission("book.create")),
     db: Session = Depends(get_db),
 ):
@@ -1139,6 +1142,7 @@ async def batch_books(
 @router.post("/books/batch-create", status_code=201)
 def single_create(
     body: dict,
+    request: Request,
     _u: User = Depends(require_permission("book.create")),
     db: Session = Depends(get_db),
 ):
