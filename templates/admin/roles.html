@@ -1,0 +1,103 @@
+{% extends "admin/base.html" %}
+{% block title %}权限管理{% endblock %}
+{% block main %}
+<div class="page-header"><h1>🔐 权限管理</h1></div>
+<div style="display:grid;grid-template-columns:300px 1fr;gap:1.5rem">
+    <div class="card">
+        <h3>角色卡 <button class="btn btn-primary btn-sm" style="float:right" onclick="showAddModal()">＋ 新建</button></h3>
+        <div id="role-list"></div>
+    </div>
+    <div class="card" id="edit-panel" style="display:none">
+        <h3 id="edit-title">权限分配</h3>
+        <p style="color:var(--muted);margin-bottom:1rem">勾选以分配权限给此角色</p>
+        <div id="perm-grid"></div>
+        <div class="modal-actions" style="margin-top:1rem">
+            <button class="btn btn-danger btn-sm" onclick="deleteRole()">🗑 删除此角色</button>
+            <button class="btn btn-primary btn-sm" onclick="savePerms()">💾 保存权限</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="add-role-modal"><div class="modal" style="max-width:400px">
+    <h2>新建角色</h2>
+    <div class="form-group"><label>角色名称 *</label><input type="text" id="new-role-name"></div>
+    <div class="form-group"><label>描述</label><input type="text" id="new-role-desc"></div>
+    <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('add-role-modal')">取消</button>
+        <button class="btn btn-primary" onclick="createRole()">创建</button>
+    </div>
+</div></div>
+
+<style>
+.perm-group{margin-bottom:1rem}
+.perm-group h4{font-size:0.85rem;color:#1b5e20;margin-bottom:0.3rem;border-bottom:1px solid #dcebdc;padding-bottom:0.2rem}
+.perm-row{display:flex;align-items:center;padding:0.2rem 0;font-size:0.85rem}
+.perm-row input{margin-right:0.5rem}
+.role-item{padding:0.5rem;cursor:pointer;border-bottom:1px solid var(--border);transition:0.12s}
+.role-item:hover{background:#f0faf3}
+.role-item.active{background:#e8f5e9;font-weight:600}
+</style>
+
+<script>
+var allPerms=[],roles=[],selRole=null;
+var CATS={
+    'book':{icon:'📖',label:'图书管理'},'user':{icon:'👥',label:'用户管理'},
+    'invite':{icon:'🎫',label:'邀请码'},'asset':{icon:'🗄',label:'资源库'},
+    'article':{icon:'📰',label:'文章管理'},'issue':{icon:'🗳',label:'议题管理'},
+    'election':{icon:'🏛',label:'选举管理'},'catalog':{icon:'🏷',label:'元数据管理'},
+    'role':{icon:'🔐',label:'权限管理'},'audit':{icon:'📈',label:'日志与统计'},
+    'system':{icon:'⚙',label:'系统配置'},
+};
+
+async function init(){
+    allPerms=await api('/permissions');roles=await api('/roles');renderRoleList();
+}
+function renderRoleList(){
+    document.getElementById('role-list').innerHTML=roles.map(function(r){
+        return '<div class="role-item'+(selRole&&selRole.id===r.id?' active':'')+'" onclick="selectRole('+r.id+')">'+r.name+'</div>';
+    }).join('')||'<p style="color:var(--muted)">暂无</p>';
+}
+function selectRole(id){
+    selRole=roles.find(function(r){return r.id===id});
+    document.getElementById('edit-panel').style.display='block';
+    document.getElementById('edit-title').textContent='权限: '+selRole.name;
+    var groups={},curPerms=new Set(selRole.permissions||[]);
+    allPerms.forEach(function(p){
+        var cat=p.code.split('.')[0];if(!groups[cat])groups[cat]=[];groups[cat].push(p);
+    });
+    var h='';
+    Object.keys(CATS).forEach(function(cat){
+        var perms=groups[cat];if(!perms||!perms.length)return;
+        h+='<div class="perm-group"><h4>'+CATS[cat].icon+' '+CATS[cat].label+'</h4>';
+        perms.forEach(function(p){
+            h+='<label class="perm-row"><input type="checkbox" value="'+p.code+'" '+(curPerms.has(p.code)?'checked':'')+'> '+p.description+'</label>';
+        });
+        h+='</div>';
+    });
+    document.getElementById('perm-grid').innerHTML=h||'<p style="color:var(--muted)">无</p>';
+}
+async function savePerms(){
+    var codes=Array.from(document.querySelectorAll('#perm-grid input:checked')).map(function(cb){return cb.value});
+    await api('/roles/'+selRole.id+'/permissions',{method:'PUT',body:codes});
+    toast('已保存');roles=await api('/roles');renderRoleList();selectRole(selRole.id);
+}
+function showAddModal(){
+    document.getElementById('new-role-name').value='';document.getElementById('new-role-desc').value='';
+    openModal('add-role-modal');
+}
+async function createRole(){
+    var name=document.getElementById('new-role-name').value.trim();
+    if(!name)return toast('请输入名称','error');
+    var desc=document.getElementById('new-role-desc').value.trim();
+    await api('/roles',{method:'POST',body:{name:name,description:desc}});
+    closeModal('add-role-modal');toast('已创建');roles=await api('/roles');renderRoleList();
+}
+async function deleteRole(){
+    if(!selRole)return;if(!confirm('删除 '+selRole.name+'？'))return;
+    await api('/roles/'+selRole.id,{method:'DELETE'});
+    selRole=null;document.getElementById('edit-panel').style.display='none';
+    roles=await api('/roles');renderRoleList();
+}
+init();
+</script>
+{% endblock %}

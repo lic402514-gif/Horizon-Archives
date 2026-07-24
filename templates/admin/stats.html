@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% block title %}统计{% endblock %}
+{% block main %}
+<div class="page-header"><h1>📈 下载统计</h1></div>
+<div class="stats-grid" id="stats-summary">加载中...</div>
+<div class="card" style="margin-top:1rem">
+    <h3>下载日志</h3>
+    <table id="log-table">
+        <thead><tr><th>ID</th><th>用户</th><th>书名</th><th>格式</th><th>时间</th></tr></thead>
+        <tbody><tr><td colspan="5">加载中...</td></tr></tbody>
+    </table>
+</div>
+<script>
+async function loadStats() {
+    try {
+        const [stats, logs] = await Promise.all([
+            api('/stats/summary'), api('/stats/logs?limit=100'),
+        ]);
+        document.getElementById('stats-summary').innerHTML = [
+            {label:'总下载次数', value: stats.total_downloads, color:'#2563eb'},
+            {label:'今日下载', value: stats.today_downloads, color:'#16a34a'},
+            {label:'本周下载', value: stats.week_downloads, color:'#8b5cf6'},
+            {label:'本月下载', value: stats.month_downloads, color:'#ec4899'},
+            {label:'活跃用户', value: stats.active_users, color:'#f59e0b'},
+        ].map(s => `<div class="card"><h3>${s.label}</h3><div class="value" style="color:${s.color}">${s.value}</div></div>`).join('');
+        document.getElementById('log-table').innerHTML = `
+            <thead><tr><th>ID</th><th>用户</th><th>书名</th><th>格式</th><th>时间</th></tr></thead>
+            <tbody>${logs.map(l => 
+                `<tr><td>${l.id}</td><td>${l.username||'-'}</td><td>${l.book_title||'-'}</td><td>${l.format||'-'}</td><td>${l.timestamp?.replace('T',' ').substring(0,19)||'-'}</td></tr>`
+            ).join('')}</tbody>`;
+    } catch (e) {
+        document.getElementById('stats-summary').innerHTML =
+            `<div class="card" style="color:var(--danger)">⚠️ ${e.message} <button class="btn btn-outline btn-sm" onclick="loadStats()">重试</button></div>`;
+    }
+}
+loadStats();
+</script>
+{% endblock %}

@@ -1,0 +1,246 @@
+{% extends "admin/base.html" %}
+{% block title %}文章编辑器{% endblock %}
+{% block main %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor/dist/index.css">
+<style>
+:root{--vw:calc(100vw-260px)}
+.editor-shell{display:grid;grid-template-columns:320px 1fr 220px;gap:1rem;height:calc(100vh-7rem)}
+.panel-left{overflow-y:auto;padding-right:0.25rem}
+.panel-left .card{margin-bottom:0.65rem;padding:0.9rem}
+.panel-left .card h3{font-size:0.78rem;margin-bottom:0.4rem}
+.panel-center{display:flex;flex-direction:column;overflow:hidden}
+.panel-right{overflow-y:auto;font-size:0.8rem}
+.panel-right .card{padding:0.7rem;margin-bottom:0.5rem}
+.panel-right .card h4{font-size:0.75rem;color:#4c8b5b;margin-bottom:0.4rem}
+/* Vditor overrides */
+.vditor{flex:1;border:1px solid var(--border)!important;border-radius:8px!important;overflow:hidden!important}
+.vditor .vditor-toolbar{background:#f9fdf9!important;border-bottom:1px solid #dcebdc!important}
+.vditor .vditor-content{min-height:100%}
+.vditor .vditor-reset img{max-width:100%!important;height:auto!important;border-radius:6px}
+.vditor .vditor-preview{max-width:860px!important;margin:0 auto!important}
+/* CodeMirror LineWidget image preview — placeholder + aspect-ratio */
+.CodeMirror-linewidget img{max-width:860px!important;max-height:500px!important;width:860px!important;object-fit:contain!important;border-radius:6px;border:1px solid var(--border);display:block;margin:4px 0 4px 0;background:#f0faf3 url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><text x=%220%22 y=%2228%22 font-size=%2220%22>🖼</text></svg>') no-repeat center}
+.CodeMirror-linewidget img.loaded{background:transparent}
+.vditor .CodeMirror-linewidget img:hover{opacity:0.9}
+/* Stats bar */
+.stats-bar{display:flex;gap:1.5rem;padding:0.5rem 0;font-size:0.78rem;color:#8d9f8d}
+.stats-bar strong{color:#1b5e20}
+/* Outline */
+.outline-item{padding:2px 6px;cursor:pointer;border-radius:3px;color:#2f3b2f;transition:0.12s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.outline-item:hover{background:#f0faf3;color:#1b5e20}
+.outline-h1{font-weight:700;font-size:0.85rem}
+.outline-h2{padding-left:10px;font-size:0.8rem}
+.outline-h3{padding-left:20px;font-size:0.78rem;color:#6b7d6b}
+/* Tags */
+.tag-input-wrap{display:flex;flex-wrap:wrap;gap:0.25rem;padding:0.3rem;border:1px solid var(--border);border-radius:8px;min-height:32px;align-items:center}
+.tag-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#e8f5e9;border-radius:10px;font-size:0.72rem;color:#2e5e32}
+.tag-badge .remove{cursor:pointer;font-weight:700;font-size:0.8rem}
+.tag-input{border:none!important;outline:none;flex:1;min-width:50px;font-size:0.78rem;padding:2px 3px!important}
+.status-badge{display:inline-block;padding:0.2rem 0.65rem;border-radius:10px;font-size:0.75rem;font-weight:600}
+.status-draft{background:#fef3c7;color:#92400e}
+.status-published{background:#dcfce7;color:#166534}
+@media(max-width:1100px){.editor-shell{grid-template-columns:1fr}.panel-right{display:none}}
+</style>
+
+<div class="page-header">
+    <h1>📝 文章编辑器</h1>
+    <div style="display:flex;gap:0.5rem">
+        <button class="btn btn-outline btn-sm" onclick="loadArticleList()">📋 打开已有</button>
+        <button class="btn btn-outline btn-sm" onclick="showVersions()">🕒 版本</button>
+        <button class="btn btn-primary btn-sm" onclick="saveArticle()">💾 保存</button>
+        <button class="btn btn-success btn-sm" onclick="publishArticle()">🚀 发布</button>
+    </div>
+</div>
+
+<div class="editor-shell">
+    <!-- LEFT: Metadata -->
+    <div class="panel-left">
+        <div class="card"><h3>基本信息</h3>
+            <div class="form-group"><label>标题 *</label><input type="text" id="art-title"></div>
+            <div class="form-group"><label>URL Slug</label><input type="text" id="art-slug" placeholder="自动生成"></div>
+            <div class="form-group"><label>作者</label><input type="text" id="art-author"></div>
+            <div class="form-group"><label>分类</label><input type="text" id="art-category" placeholder="如: 哲学/现象学"></div>
+            <div class="form-group"><label>标签</label><div class="tag-input-wrap" id="tag-wrap"><input type="text" class="tag-input" id="tag-input" placeholder="输入后回车" onkeydown="addTag(event)"></div></div>
+            <div class="form-group"><label>摘要</label><textarea id="art-summary" rows="3"></textarea></div>
+            <div class="form-group"><label>状态</label>
+                <select id="art-status"><option value="draft">📝 草稿</option><option value="review">🔍 待审</option><option value="published">✅ 已发布</option><option value="archived">📦 归档</option></select></div>
+        </div>
+        <div class="card"><h3>SEO</h3>
+            <div class="form-group"><label>SEO 标题</label><input type="text" id="art-seo-title"></div>
+            <div class="form-group"><label>SEO 描述</label><input type="text" id="art-seo-desc"></div>
+            <div class="form-group"><label>SEO 关键词</label><input type="text" id="art-seo-keywords" placeholder="逗号分隔"></div>
+        </div>
+    </div>
+
+    <!-- CENTER: Vditor SV -->
+    <div class="panel-center">
+        <div class="stats-bar">
+            <span>📝 <strong id="wc-display">0</strong> 字</span>
+            <span>⏱ <strong id="rt-display">1</strong> 分钟</span>
+            <span>📌 版本 <strong id="ver-display">—</strong></span>
+            <span style="margin-left:auto">💡 拖入图片=dataURL预览 · 保存=上传OSS · SV=源码+预览</span>
+        </div>
+        <div id="vditor" style="flex:1"></div>
+    </div>
+
+    <!-- RIGHT: Outline -->
+    <div class="panel-right">
+        <div class="card"><h4>📑 大纲</h4><div id="outline-panel" style="max-height:calc(100vh-14rem);overflow-y:auto"><span style="color:var(--muted)">—</span></div></div>
+    </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="list-modal"><div class="modal" style="max-width:700px"><h2>已有文章</h2>
+    <div id="article-list" style="max-height:400px;overflow-y:auto">加载中...</div>
+    <button class="btn btn-outline" onclick="closeModal('list-modal')">关闭</button>
+</div></div>
+<div class="modal-overlay" id="vers-modal"><div class="modal" style="max-width:600px"><h2>版本历史</h2>
+    <div id="ver-list" style="max-height:300px;overflow-y:auto">加载中...</div>
+    <button class="btn btn-outline" onclick="closeModal('vers-modal')">关闭</button>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/vditor/dist/index.min.js"></script>
+<script>
+var articleId=null,tags=[],vditor,pendingImages={},_lineWidgets=[];
+
+// ── Vditor init ──────────────────────────────────────────────────────────
+vditor=new Vditor('vditor',{
+    height:window.innerHeight-180,
+    mode:'sv',                    // Source + Preview side by side
+    placeholder:'在此编写 Markdown...',
+    toolbar:['headings','bold','italic','strike','|','quote','line','list','ordered-list','check','code','inline-code','|','link','upload','table','|','undo','redo','|','fullscreen','devtools','preview','edit-mode','|','help'],
+    toolbarConfig:{pin:true},
+    counter:{enable:true,type:'markdown'},
+    outline:{enable:true},
+    upload:{
+        accept:'image/*',
+        handler:function(files){
+            Array.from(files).forEach(function(file){
+                var reader=new FileReader();
+                reader.onload=function(){
+                    var url=reader.result;
+                    vditor.insertValue('![]('+url+')');
+                    renderLineWidgets();
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+    },
+    after:function(){
+        renderLineWidgets();
+        updateStats();
+    },
+    input:function(){updateStats();renderLineWidgets();}
+});
+
+// ── LineWidget: inline image preview ────────────────────────────────────
+function renderLineWidgets(){
+    _lineWidgets.forEach(function(w){try{w.clear()}catch(e){}});
+    _lineWidgets=[];
+    var cm=vditor.vditor.editor;
+    if(!cm)return;
+    var text=cm.getValue(),seen={};
+    var re=/!\[.*?\]\((data:image\/[^)]+)\)/g;
+    var m;
+    while((m=re.exec(text))){
+        var idx=m.index,line=cm.posFromIndex(idx).line,url=m[1];
+        if(seen[line])continue;seen[line]=true;
+        var img=document.createElement('img');
+        img.src=url;img.style.maxWidth='100%';img.style.maxHeight='300px';img.style.objectFit='contain';
+        _lineWidgets.push(cm.addLineWidget(line+1,img,{coverGutter:false,noHScroll:false}));
+    }
+}
+
+// ── Stats ────────────────────────────────────────────────────────────────
+function updateStats(){
+    var t=vditor.getValue(),w=t.replace(/\s/g,'').length;
+    document.getElementById('wc-display').textContent=w;
+    document.getElementById('rt-display').textContent=Math.max(1,Math.ceil(w/300));
+    try{var o=vditor.vditor.outline;if(o&&o.outline)document.getElementById('outline-panel').innerHTML=o.render(o.outline)||'<span style=color:var(--muted)>—</span>'}catch(e){}
+}
+
+// ── Tags ─────────────────────────────────────────────────────────────────
+function addTag(e){if(e.key==='Enter'){e.preventDefault();var v=document.getElementById('tag-input').value.trim();if(v&&tags.indexOf(v)===-1){tags.push(v);renderTags()}}}
+function removeTag(i){tags.splice(i,1);renderTags()}
+function renderTags(){var w=document.getElementById('tag-wrap');w.innerHTML='';tags.forEach(function(t,i){var b=document.createElement('span');b.className='tag-badge';b.innerHTML=t+'<span class=remove onclick=removeTag('+i+')>×</span>';w.appendChild(b)});w.appendChild(Object.assign(document.createElement('input'),{type:'text',className:'tag-input',id:'tag-input',placeholder:tags.length?'':'输入后回车',onkeydown:addTag}));}
+
+// ── Build body ───────────────────────────────────────────────────────────
+function buildBody(){
+    return{title:document.getElementById('art-title').value,slug:document.getElementById('art-slug').value||undefined,author_name:document.getElementById('art-author').value||undefined,category:document.getElementById('art-category').value||undefined,tags:tags,summary:document.getElementById('art-summary').value||undefined,content_md:vditor.getValue(),seo_title:document.getElementById('art-seo-title').value||undefined,seo_description:document.getElementById('art-seo-desc').value||undefined,seo_keywords:document.getElementById('art-seo-keywords').value||undefined,status:document.getElementById('art-status').value};
+}
+
+// ── Save ─────────────────────────────────────────────────────────────────
+async function saveArticle(){
+    var content=vditor.getValue();
+    // 1. Find all data:image URLs first, then upload and replace
+    var matches=[],m,re=/!\[.*?\]\((data:image\/[^)]+)\)/g;
+    while((m=re.exec(content)))matches.push({full:m[0],url:m[1]});
+    for(var i=0;i<matches.length;i++){
+        try{
+            var resp=await fetch(matches[i].url);var blob=await resp.blob();
+            var ext=(blob.type.split('/')[1]||'png');
+            var fd=new FormData();fd.append('file',blob,'article-image.'+ext);fd.append('asset_type','article_image');
+            var r=await api('assets/upload',{method:'POST',body:fd});
+            content=content.replace(matches[i].url,'/api/image/'+r.id);
+        }catch(e){toast('图片上传失败: '+e,'error')}
+    }
+    // 2. Strip OSS pre-signed params from remaining URLs
+    content=content.replace(/(!\[.*?\]\()(https?:\/\/[^?]+)\?[^)]+(\))/g,'$1$2$3');
+    vditor.setValue(content);
+    var body=buildBody();
+    body.change_summary='Manual save';
+    if(!articleId)body.status='draft';
+    var m=articleId?'PUT':'POST',url=articleId?'articles/'+articleId:'articles';
+    var r=await api(url,{method:m,body:body});articleId=r.id;
+    document.getElementById('ver-display').textContent=r.version;
+    if(r.status==='published'){await api('articles/'+articleId+'/publish',{method:'POST'})}
+    toast('已保存');
+}
+async function publishArticle(){await saveArticle();var r=await api('articles/'+articleId+'/publish',{method:'POST'});toast('已发布: '+r.url)}
+
+// ── Load ─────────────────────────────────────────────────────────────────
+async function loadArticleList(){
+    openModal('list-modal');
+    var r=await api('articles');
+    document.getElementById('article-list').innerHTML=r.map(function(a){return'<div style="padding:0.5rem;border-bottom:1px solid var(--border);cursor:pointer" onclick="loadArticle('+a.id+')"><b>'+a.title+'</b> <span class="status-badge status-'+a.status+'">'+a.status+'</span><br><small style=color:var(--muted)>'+a.slug+'</small></div>'}).join('')||'暂无文章';
+}
+async function loadArticle(id){
+    closeModal('list-modal');
+    var r=await api('articles/'+id);articleId=r.id;
+    document.getElementById('art-title').value=r.title||'';
+    document.getElementById('art-slug').value=r.slug||'';
+    document.getElementById('art-author').value=r.author_name||'';
+    document.getElementById('art-category').value=r.category||'';
+    tags=r.tags||[];renderTags();
+    document.getElementById('art-summary').value=r.summary||'';
+    document.getElementById('art-status').value=r.status||'draft';
+    document.getElementById('art-seo-title').value=r.seo_title||'';
+    document.getElementById('art-seo-desc').value=r.seo_description||'';
+    document.getElementById('art-seo-keywords').value=r.seo_keywords||'';
+    document.getElementById('ver-display').textContent=r.version||'—';
+    vditor.setValue(r.content_md||'');
+    setTimeout(renderLineWidgets,200);
+    toast('已载入: '+r.title);
+}
+
+// ── Versions ─────────────────────────────────────────────────────────────
+async function showVersions(){
+    if(!articleId){toast('请先保存文章','error');return}
+    openModal('vers-modal');
+    var r=await api('articles/'+articleId+'/versions');
+    document.getElementById('ver-list').innerHTML=r.map(function(v){return'<div class="ver-item" onclick="restoreVer('+v.id+')"><span>v'+v.version+' — '+(v.summary||'')+'</span><span style=color:var(--muted)>'+v.created_at+'</span></div>'}).join('')||'暂无历史版本';
+}
+async function restoreVer(vid){
+    if(!confirm('恢复到该版本？当前内容将被保存为新版本'))return;
+    await api('articles/'+articleId+'/versions/'+vid+'/restore',{method:'POST'});
+    closeModal('vers-modal');
+    var r=await api('articles/'+articleId);articleId=r.id;
+    vditor.setValue(r.content_md||'');setTimeout(renderLineWidgets,200);toast('已恢复');
+}
+
+// Auto-load last draft
+(async function(){
+    try{var r=await api('articles?status=draft');if(r.length>0)loadArticle(r[0].id)}catch(e){}
+})();
+</script>
+{% endblock %}

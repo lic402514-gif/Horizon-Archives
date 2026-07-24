@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <meta name="description" content="地平线档案馆（Horizon Archive） — 静态数字图书馆">
+    <link rel="stylesheet" href="{{ base_path }}/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="reading-progress" id="progressBar"></div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     侧边栏 — 固定左侧
+     ═══════════════════════════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <a href="{{ base_path }}/index.html" class="sidebar-logo" style="text-decoration:none;">&#128214;</a>
+    <div class="sidebar-brand">
+      <a href="{{ base_path }}/index.html" style="text-decoration:none;"><div class="sidebar-brand-name">地平线档案馆<br><span class="sidebar-brand-sub">Horizon Archive</span></div></a>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-title">导航</div>
+    <a class="nav-item{% if active_page == 'home' %} active{% endif %}" href="{{ base_path }}/index.html">
+      <span class="nav-code">&#127968;</span><span class="nav-label">首页</span>
+    </a>
+    <a class="nav-item" href="/activity">
+      <span class="nav-code">📋</span><span class="nav-label">动态</span>
+    </a>
+    <a class="nav-item{% if active_page == 'articles' %} active{% endif %}" href="{{ base_path }}/articles/">
+      <span class="nav-code">&#128196;</span><span class="nav-label">文章</span>
+    </a>
+    <a class="nav-item{% if active_page == 'issues' %} active{% endif %}" href="{{ base_path }}/issues/index.html">
+      <span class="nav-code">🗳</span><span class="nav-label">议题</span>
+    </a>
+    <a class="nav-item{% if active_page == 'elections' %} active{% endif %}" href="{{ base_path }}/elections/index.html">
+      <span class="nav-code">🏛</span><span class="nav-label">选举</span>
+    </a>
+    <a class="nav-item{% if active_page == 'about' %} active{% endif %}" href="{{ base_path }}/about.html">
+      <span class="nav-code">&#8505;</span><span class="nav-label">关于</span>
+    </a>
+    <a class="nav-item" href="{{ base_path }}/team.html">
+      <span class="nav-code">👥</span><span class="nav-label">管理团队</span>
+    </a>
+
+    <div class="nav-section-title">CLC 分类浏览</div>
+    {% if all_categories %}
+    {% for cat in all_categories if cat.parent_code is none %}
+    <a class="nav-item" data-cat="{{ cat.code }}" href="{{ base_path }}/category/{{ cat.code }}.html" title="{{ cat.name }}">
+      <span class="nav-code">{{ cat.code }}</span><span class="nav-label">{{ cat.name }}</span>
+    </a>
+    {% endfor %}
+    {% else %}
+    <a class="nav-item" data-cat="A" href="{{ base_path }}/category/A.html" title="马克思主义、列宁主义、毛泽东思想、邓小平理论"><span class="nav-code">A</span><span class="nav-label">马克思主义、列宁主义、毛泽东思想、邓小平理论</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/B.html"><span class="nav-code">B</span><span class="nav-label">哲学、宗教</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/C.html"><span class="nav-code">C</span><span class="nav-label">社会科学总论</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/D.html"><span class="nav-code">D</span><span class="nav-label">政治、法律</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/E.html"><span class="nav-code">E</span><span class="nav-label">军事</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/F.html"><span class="nav-code">F</span><span class="nav-label">经济</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/G.html"><span class="nav-code">G</span><span class="nav-label">文化、科学、教育、体育</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/H.html"><span class="nav-code">H</span><span class="nav-label">语言、文字</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/I.html"><span class="nav-code">I</span><span class="nav-label">文学</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/J.html"><span class="nav-code">J</span><span class="nav-label">艺术</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/K.html"><span class="nav-code">K</span><span class="nav-label">历史、地理</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/N.html"><span class="nav-code">N</span><span class="nav-label">自然科学总论</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/O.html"><span class="nav-code">O</span><span class="nav-label">数理科学和化学</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/Q.html"><span class="nav-code">Q</span><span class="nav-label">生物科学</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/R.html"><span class="nav-code">R</span><span class="nav-label">医药、卫生</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/T.html"><span class="nav-code">T</span><span class="nav-label">工业技术</span></a>
+    <a class="nav-item" href="{{ base_path }}/category/Z.html"><span class="nav-code">Z</span><span class="nav-label">综合性图书</span></a>
+    {% endif %}
+  </nav>
+
+  <div class="sidebar-footer" id="sidebarFooter" style="cursor:pointer;" onclick="goToUserPage()" title="点击进入登录页面">
+    <div class="sidebar-avatar" id="sidebarAvatar">访</div>
+    <div class="sidebar-user-info">
+      <div style="font-weight:700;font-size:13px;color:#1b5e20;" id="sidebarUserName">访客</div>
+      <div style="font-size:10px;color:#4c8b5b;" id="sidebarUserStatus">未登录</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     主内容区
+     ═══════════════════════════════════════════════════════════════════ -->
+<main class="main-content" id="mainContent">
+
+  <!-- Top Bar -->
+  <div class="topbar">
+    <button class="mobile-menu-btn" id="mobileMenuBtn">&#9776;</button>
+    <form class="search-box" onsubmit="return doSearch(event)" style="display:flex;">
+      <input type="text" placeholder="搜索书名、作者、ISBN…" id="searchInput">
+      <button type="submit" class="search-btn">搜索</button>
+    </form>
+    <div class="topbar-actions" id="topbarActions">
+      <a href="/login" class="btn-login-top" id="btnLogin">&#128100; 登录</a>
+      <a href="/register" class="btn-register-top" id="btnRegister">&#9997; 注册</a>
+      <a href="/admin" class="btn-admin-top" id="btnAdmin" style="display:none;" title="管理后台" target="_blank">&#9881; 管理</a>
+      <span class="btn-logout-top" id="btnLogout" style="display:none;cursor:pointer;" onclick="doLogout()">&#128682; 退出</span>
+    </div>
+  </div>
+
+  {% block content %}{% endblock %}
+
+  <footer class="main-footer">
+    &copy; {{ now.year }} 地平线档案馆（Horizon Archive） &middot; 本站为静态生成，所有资源下载需登录验证
+  </footer>
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     悬浮按钮组
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="quick-float">
+  <button class="float-btn back-top" id="backTopBtn" title="回到顶部">&#8593;</button>
+  <button class="float-btn" id="randomBookBtn" title="随机推荐">&#9861;</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  侧边栏 — 固定展开，不可收缩
+// ═══════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════
+//  移动端 — 侧边栏抽屉式展开
+// ═══════════════════════════════════════════════════════════════════════
+(function() {
+  var mobileBtn = document.getElementById('mobileMenuBtn');
+  var sidebar = document.getElementById('sidebar');
+  var overlay = document.getElementById('sidebarOverlay');
+  mobileBtn.addEventListener('click', function() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('show');
+  });
+  overlay.addEventListener('click', function() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+//  页面滚动进度条
+// ═══════════════════════════════════════════════════════════════════════
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  var pct = (h.scrollHeight - h.clientHeight) > 0
+    ? (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100 : 0;
+  document.getElementById('progressBar').style.width = pct + '%';
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  回到顶部按钮
+// ═══════════════════════════════════════════════════════════════════════
+(function() {
+  var backTopBtn = document.getElementById('backTopBtn');
+  backTopBtn.addEventListener('click', function() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  window.addEventListener('scroll', function() {
+    var v = window.scrollY > 400;
+    backTopBtn.style.opacity = v ? '1' : '0';
+    backTopBtn.style.pointerEvents = v ? 'auto' : 'none';
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+//  侧边栏导航 — 保持滚动位置不变 + 高亮当前分类
+// ═══════════════════════════════════════════════════════════════════════
+(function() {
+  var nav = document.querySelector('.sidebar-nav');
+  if (!nav) return;
+  // 恢复滚动位置
+  var saved = sessionStorage.getItem('sbScrollTop');
+  if (saved !== null) nav.scrollTop = parseInt(saved);
+  window.addEventListener('beforeunload', function() {
+    sessionStorage.setItem('sbScrollTop', nav.scrollTop);
+  });
+  nav.addEventListener('click', function(e) {
+    if (e.target.closest('.nav-item')) {
+      sessionStorage.setItem('sbScrollTop', nav.scrollTop);
+    }
+  });
+  // 高亮当前页面对应的分类项
+  var match = window.location.pathname.match(/\/category\/([A-Z]+)\.html$/);
+  if (match) {
+    var item = nav.querySelector('.nav-item[data-cat="' + match[1] + '"]');
+    if (item) item.classList.add('active');
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Hero 数字滚动动画（仅首页）
+// ═══════════════════════════════════════════════════════════════════════
+(function() {
+  var hero = document.getElementById('heroBanner');
+  if (!hero) return;
+  function animateCounters() {
+    document.querySelectorAll('[data-count]').forEach(function(el) {
+      var target = parseInt(el.dataset.count);
+      var start = performance.now();
+      function update(now) {
+        var p = Math.min((now - start) / 2000, 1);
+        el.textContent = Math.floor((1 - Math.pow(1 - p, 3)) * target).toLocaleString();
+        if (p < 1) requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    });
+  }
+  new IntersectionObserver(function(entries, obs) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) { animateCounters(); obs.unobserve(e.target); }
+    });
+  }, { threshold: 0.5 }).observe(hero);
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+//  随机选取 5 本新书渲染到首页
+// ═══════════════════════════════════════════════════════════════════════
+(function() {
+  var grid = document.getElementById('newBooksGrid');
+  if (!grid || !window._allBooks || !window._allBooks.length) return;
+  var colors = window._bookColors || [];
+  var icons = window._bookIcons || ['📕','📖','📒','📓','📘','📜'];
+  // Fisher-Yates 洗牌，取前 5 本
+  var pool = window._allBooks.slice();
+  for (var i = pool.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  }
+  var selected = pool.slice(0, 5);
+  var html = '';
+  for (var k = 0; k < selected.length; k++) {
+    var b = selected[k];
+    var ci = k % colors.length;
+    var bg = colors[ci] || 'linear-gradient(135deg, #e8f5e9, #a5d6a7)';
+    var icon = icons[ci] || '📕';
+    html += '<a href="/book/' + b.id + '.html" class="book-card" data-book-id="' + b.id + '">' +
+      '<div class="book-cover-wrap"><div class="book-cover-bg" style="background:' + bg + ';">' + icon +
+      (b.cat ? '<span class="book-cat-code">' + b.cat + '</span>' : '') +
+      '</div></div>' +
+      '<div class="book-info"><h4>' + b.title + '</h4>' +
+      '<div class="author">' + b.author + '</div>' +
+      '<div class="meta-row"><span>' + (b.hasFile ? '可下载' : '可借阅') + '</span></div>' +
+      '</div></a>';
+  }
+  grid.innerHTML = html;
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+//  随机推荐
+// ═══════════════════════════════════════════════════════════════════════
+document.getElementById('randomBookBtn').addEventListener('click', function() {
+  var links = document.querySelectorAll('.book-card[data-book-id], .book-list a[href*="/book/"]');
+  if (links.length > 0) {
+    var idx = Math.floor(Math.random() * links.length);
+    var el = links[idx];
+    var title = '';
+    if (el.classList.contains('book-card')) {
+      title = (el.querySelector('h4') || {}).textContent || '';
+    } else {
+      title = el.textContent || '';
+    }
+    if (el.href) window.location.href = el.href;
+    showToast('今日推荐：《' + title + '》');
+  } else {
+    showToast('暂无图书可推荐');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  搜索 — Google site: 搜索
+// ═══════════════════════════════════════════════════════════════════════
+function doSearch(e) {
+  e.preventDefault();
+  var q = document.getElementById('searchInput').value.trim();
+  if (!q) {
+    document.getElementById('searchInput').focus();
+    shakeEl(document.getElementById('searchInput'));
+    return false;
+  }
+  window.location.href = '/search?q=' + encodeURIComponent(q);
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  登录状态检测 — 更新侧边栏和顶栏
+// ═══════════════════════════════════════════════════════════════════════
+//  登录状态检测 — 更新侧边栏、顶栏、body class
+// ═══════════════════════════════════════════════════════════════════════
+(function() {
+  var btnLogin = document.getElementById('btnLogin');
+  var btnRegister = document.getElementById('btnRegister');
+  var btnLogout = document.getElementById('btnLogout');
+  var btnAdmin = document.getElementById('btnAdmin');
+  var avatar = document.getElementById('sidebarAvatar');
+  var userName = document.getElementById('sidebarUserName');
+  var userStatus = document.getElementById('sidebarUserStatus');
+  var footer = document.getElementById('sidebarFooter');
+  fetch('/api/me', {credentials: 'same-origin'}).then(function(r) {
+    return r.ok ? r.json() : null;
+  }).then(function(u) {
+    if (u && u.username) {
+      // 已登录 — 标记 body class，控制显隐
+      document.body.classList.add('logged-in');
+      if (btnLogin) btnLogin.style.display = 'none';
+      if (btnRegister) btnRegister.style.display = 'none';
+      if (btnLogout) btnLogout.style.display = 'flex';
+      var isAdmin = u.role === 'admin' || (u.roles && u.roles.some(function(r) { return r.name && r.name.indexOf('管理员') !== -1; }));
+      if (isAdmin && btnAdmin) btnAdmin.style.display = 'flex';
+      if (userStatus) userStatus.textContent = isAdmin ? '管理员' : '已登录';
+      if (avatar) avatar.textContent = u.username.charAt(0).toUpperCase();
+      if (userName) userName.textContent = u.username;
+      if (userStatus) userStatus.textContent = u.role === 'admin' ? '管理员' : '已登录';
+      if (footer) { footer.onclick = function() { doLogout(); }; footer.title = '点击退出登录'; }
+      var els = document.querySelectorAll('.show-if-logged-in');
+      for (var i = 0; i < els.length; i++) els[i].style.display = '';
+    } else {
+      // 未登录
+      document.body.classList.add('not-logged-in');
+      if (footer) { footer.onclick = function() { window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname); }; }
+    }
+    // 浏览追踪
+    trackPageView(u);
+  }).catch(function(){ trackPageView(null); });
+
+  function getSessionKey() {
+    var key = localStorage.getItem('_pv_sk');
+    if (!key) { key = 'sk_' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('_pv_sk', key); }
+    return key;
+  }
+  function trackPageView(user) {
+    var body = { path: window.location.pathname, sk: getSessionKey() };
+    if (user && user.id) body.uid = user.id;
+    fetch('/api/page-view', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' }).catch(function(){});
+  }
+})();
+
+function doLogout() {
+  document.cookie = 'session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  window.location.reload();
+}
+
+function goToUserPage() {
+  fetch('/api/me', {credentials: 'same-origin'}).then(function(r) {
+    if (r.ok) { doLogout(); }
+    else { window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname); }
+  }).catch(function() {
+    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  登录检测 — 用于下载按钮
+// ═══════════════════════════════════════════════════════════════════════
+function downloadOrLogin(downloadUrl) {
+  fetch('/api/me', {credentials: 'same-origin'}).then(function(r) {
+    if (r.ok) {
+      window.open(downloadUrl, '_blank');
+    } else {
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+    }
+  }).catch(function() {
+    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  工具函数
+// ═══════════════════════════════════════════════════════════════════════
+function showToast(msg) {
+  var old = document.querySelector('.toast'); if (old) old.remove();
+  var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function() { t.remove(); }, 2100);
+}
+
+function shakeEl(el) {
+  el.style.animation = 'none'; el.offsetHeight;
+  el.style.animation = 'shake 0.45s ease';
+}
+
+(function() {
+  var s = document.createElement('style');
+  s.textContent = '@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}}';
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

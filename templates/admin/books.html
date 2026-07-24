@@ -1,0 +1,519 @@
+{% extends "admin/base.html" %}
+{% block title %}图书管理{% endblock %}
+{% block main %}
+<style>
+.grid-toolbar{display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.grid-toolbar input[type=search]{flex:1;min-width:200px;padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:6px;font-size:0.9rem}
+.grid-toolbar select,.grid-toolbar button:not([class*="btn-"]){padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;cursor:pointer;background:var(--card)}
+.grid-toolbar button:hover{background:var(--bg)}
+.grid-wrap{overflow:auto;max-height:calc(100vh - 280px);border:1px solid var(--border);border-radius:8px;background:var(--card)}
+.grid-table{width:100%;border-collapse:collapse;font-size:0.85rem;table-layout:auto}
+.grid-table th{position:sticky;top:0;background:#f1f5f9;z-index:10;padding:0.5rem 0.75rem;text-align:left;font-weight:600;color:var(--muted);border-bottom:2px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+.grid-table th:hover{background:#e2e8f0}
+.grid-table th .sort-icon{font-size:0.7rem;margin-left:0.25rem;opacity:0.4}
+.grid-table th.sorted .sort-icon{opacity:1;color:var(--accent)}
+.grid-table th .filter-btn{margin-left:0.3rem;font-size:0.7rem;opacity:0.3;cursor:pointer}
+.grid-table th .filter-btn.active{opacity:1;color:var(--accent)}
+.grid-table td{padding:0.4rem 0.75rem;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px}
+.grid-table tr:hover{background:#f8fafc}
+.grid-table tr.selected{background:#dbeafe}
+.grid-table .col-id{position:sticky;left:0;background:var(--card);z-index:5;font-weight:600;min-width:50px}
+.grid-table tr:hover .col-id{background:#f8fafc}
+.grid-table tr.selected .col-id{background:#dbeafe}
+.grid-table .col-title{position:sticky;left:54px;background:var(--card);z-index:5;min-width:180px}
+.grid-table tr:hover .col-title{background:#f8fafc}
+.grid-table tr.selected .col-title{background:#dbeafe}
+.grid-table th.col-id,.grid-table th.col-title{z-index:12;background:#f1f5f9}
+.grid-table input[type=checkbox]{cursor:pointer}
+.highlight{background:#fef08a;padding:0 1px;border-radius:2px}
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;font-size:0.8rem;color:var(--muted)}
+.pagination{display:flex;gap:0.25rem;align-items:center}
+.pagination button{padding:0.3rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--card);cursor:pointer;font-size:0.8rem}
+.pagination button:disabled{opacity:0.4;cursor:default}
+.pagination button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pagination select{padding:0.3rem;border:1px solid var(--border);border-radius:4px;font-size:0.8rem}
+
+.filter-popup{position:absolute;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.75rem;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.1);min-width:200px;display:none}
+.filter-popup.active{display:block}
+.filter-popup input,.filter-popup select{width:100%;padding:0.35rem 0.5rem;border:1px solid var(--border);border-radius:4px;font-size:0.8rem;margin-bottom:0.4rem}
+
+.ctx-menu{position:fixed;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.25rem 0;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,0.15);min-width:160px;display:none}
+.ctx-menu.active{display:block}
+.ctx-menu div{padding:0.45rem 1rem;cursor:pointer;font-size:0.85rem}
+.ctx-menu div:hover{background:var(--bg)}
+.ctx-menu .danger{color:var(--danger)}
+
+.col-toggle{position:relative;display:inline-block}
+.col-toggle-dropdown{position:absolute;top:100%;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.5rem;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.1);min-width:180px;display:none}
+.col-toggle-dropdown.active{display:block}
+.col-toggle-dropdown label{display:block;padding:0.25rem 0;font-size:0.8rem;cursor:pointer}
+
+.batch-bar{display:none;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;padding:0.5rem 1rem;margin-bottom:0.5rem;align-items:center;gap:0.75rem}
+.batch-bar.active{display:flex}
+.batch-bar select,.batch-bar input{padding:0.3rem 0.5rem;border:1px solid #93c5fd;border-radius:4px;font-size:0.8rem}
+.batch-bar button{padding:0.3rem 0.75rem;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:0.8rem}
+</style>
+
+<div class="grid-toolbar">
+    <input type="search" id="grid-search" placeholder="🔍 搜索书名/作者/出版社/ISBN/摘要..." onkeyup="debounceSearch()">
+    <button class="btn btn-primary btn-sm" onclick="openAddModal()">＋ 新建</button>
+    <button onclick="exportCSV()" title="导出CSV">📥 导出</button>
+    <button onclick="document.getElementById('csv-import-file').click()" title="导入CSV">📤 CSV导入</button>
+    <input type="file" id="csv-import-file" accept=".csv" style="display:none" onchange="importCSV(this)">
+    <button onclick="openModal('batch-modal')" title="JSON批量导入">📋 JSON导入</button>
+    <button class="btn btn-warning btn-sm" onclick="rebuildSite()">🚀 发布</button>
+    <div class="col-toggle">
+        <button onclick="document.getElementById('col-toggle-dd').classList.toggle('active')">⚙ 列</button>
+        <div class="col-toggle-dropdown" id="col-toggle-dd"></div>
+    </div>
+</div>
+
+<div class="batch-bar" id="batch-bar">
+    <label style="display:flex;align-items:center;gap:0.3rem;cursor:pointer;font-size:0.85rem">
+        <input type="checkbox" id="batch-select-all" onchange="selectAll(this.checked)" style="width:16px;height:16px;cursor:pointer">
+        全选
+    </label>
+    <span id="batch-count">已选 0 项</span>
+    <select id="batch-field">
+        <option value="">-- 批量修改 --</option>
+        <option value="status">状态</option>
+        <option value="category_code">分类</option>
+        <option value="author">作者</option>
+        <option value="publisher">出版社</option>
+    </select>
+    <input type="text" id="batch-value" placeholder="新值" style="display:none">
+    <select id="batch-status-val" style="display:none"><option value="published">已发布</option><option value="draft">草稿</option></select>
+    <button onclick="batchApply()">应用</button>
+    <button class="btn btn-danger btn-sm" onclick="batchDelete()">🗑 批量删除</button>
+    <button onclick="clearSelection()" style="background:var(--bg);color:var(--text)">取消选择</button>
+</div>
+
+<div class="grid-wrap" id="grid-wrap">
+    <table class="grid-table" id="grid-table">
+        <thead id="grid-head"></thead>
+        <tbody id="grid-body"><tr><td colspan="20">加载中...</td></tr></tbody>
+    </table>
+</div>
+
+<div class="status-bar">
+    <span id="status-info">加载中...</span>
+    <div class="pagination" id="pagination"></div>
+</div>
+
+<div class="ctx-menu" id="ctx-menu">
+    <div onclick="ctxView()">📖 查看详情</div>
+    <div onclick="ctxEdit()">✏️ 编辑</div>
+    <div onclick="ctxCopyISBN()">📋 复制ISBN</div>
+    <div class="danger" onclick="ctxDelete()">🗑 删除</div>
+</div>
+
+<script>
+// ── State ──
+const COLS = [
+    {key:"id",label:"ID",sortable:true,width:55,sticky:true},
+    {key:"title",label:"书名",sortable:true,width:200,sticky:true},
+    {key:"author",label:"作者",sortable:true,width:120},
+    {key:"publisher",label:"出版社",sortable:true,width:120},
+    {key:"isbn",label:"ISBN",sortable:true,width:140},
+    {key:"edition",label:"版次",sortable:true,width:70},
+    {key:"pub_year",label:"年份",sortable:true,width:60},
+    {key:"category_code",label:"分类",sortable:true,width:70},
+    {key:"summary",label:"摘要",sortable:false,width:250},
+    {key:"status",label:"状态",sortable:true,width:80},
+    {key:"updated_at",label:"更新时间",sortable:true,width:140},
+];
+let allColumns = COLS.map(c => c.key);
+let visibleCols = new Set(allColumns.filter(k => k !== "summary"));
+let state = {search:"",sort:"",filters:[],page:1,pageSize:50,total:0,selected:{},ctxRow:null,ctxMenuIdx:null};
+let searchTimer;
+
+// ── Init ──
+(function init(){
+    document.addEventListener("click",()=>{
+        document.getElementById("ctx-menu").classList.remove("active");
+        document.querySelectorAll(".filter-popup").forEach(p=>p.classList.remove("active"));
+        document.getElementById("col-toggle-dd").classList.remove("active");
+    });
+    buildColToggle();
+    loadData();
+})();
+
+function buildColToggle(){
+    document.getElementById("col-toggle-dd").innerHTML = COLS.map(c =>
+        `<label><input type="checkbox" ${visibleCols.has(c.key)?"checked":""} onchange="toggleCol('${c.key}',this.checked)"> ${c.label}</label>`
+    ).join("");
+}
+
+function toggleCol(key,show){show?visibleCols.add(key):visibleCols.delete(key);renderTable();}
+
+// ── Data loading ──
+async function loadData(){
+    document.getElementById("grid-body").innerHTML = '<tr><td colspan="99">加载中...</td></tr>';
+    const params = new URLSearchParams({page:state.page,page_size:state.pageSize});
+    if(state.search) params.set("search",state.search);
+    if(state.sort) params.set("sort",state.sort);
+    if(state.filters.length) params.set("filters",JSON.stringify(state.filters));
+    const r = await fetch(API+"/books/datagrid?"+params,{headers:{"Authorization":`Bearer ${TOKEN}`}});
+    if(r.status===401){location.href="/admin/login";return;}
+    const d = await r.json();
+    state.total = d.total; state.page = d.page;
+    renderTable(d.rows);
+    renderPagination(d);
+    renderStatus(d);
+    if(state.search) highlightSearch();
+}
+
+function renderTable(rows){
+    const head = COLS.filter(c=>visibleCols.has(c.key)).map(c=>{
+        const sorted = state.sort && state.sort.startsWith(c.key);
+        const dir = sorted ? (state.sort.includes("desc")?"↓":"↑") : "";
+        return `<th class="${c.sticky?'col-'+c.key:''} ${sorted?'sorted':''}"
+            style="min-width:${c.width||100}px"
+            onclick="toggleSort('${c.key}')">
+            ${c.label}<span class="sort-icon">${dir}</span>
+            <span class="filter-btn ${hasFilter(c.key)?'active':''}" onclick="event.stopPropagation();showFilter(event,'${c.key}')">▽</span>
+        </th>`;
+    }).join("");
+    document.getElementById("grid-head").innerHTML = `<tr><th style="width:40px"></th>${head}</tr>`;
+
+    const body = rows.map((r,i)=>{
+        const sel = state.selected[r.id];
+        const cells = COLS.filter(c=>visibleCols.has(c.key)).map(c=>{
+            let v = r[c.key]||"";
+            if(c.key==="status") v = `<span class="badge ${v==='published'?'badge-success':'badge-warning'}">${v==='published'?'已发布':'草稿'}</span>`;
+            else if(c.key==="summary") v = (v||"").substring(0,100);
+            else if(c.key==="updated_at"||c.key==="created_at") v = v ? v.substring(0,10) : "";
+            return `<td class="${c.sticky?'col-'+c.key:''}">${v}</td>`;
+        }).join("");
+        return `<tr class="${sel?'selected':''}" data-id="${r.id}" oncontextmenu="showCtxMenu(event,${r.id},this)">
+            <td class="col-id"><input type="checkbox" ${sel?'checked':''} onchange="toggleSelect(${r.id},this.checked)"></td>
+            ${cells}
+        </tr>`;
+    }).join("");
+    document.getElementById("grid-body").innerHTML = body || '<tr><td colspan="99">无数据</td></tr>';
+}
+
+function highlightSearch(){
+    if(!state.search) return;
+    const term = state.search.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    const re = new RegExp(`(${term})`,'gi');
+    document.querySelectorAll("#grid-body td").forEach(td=>{
+        td.innerHTML = td.textContent.replace(re,'<span class="highlight">$1</span>');
+    });
+}
+
+// ── Search ──
+function debounceSearch(){
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(()=>{
+        state.search = document.getElementById("grid-search").value.trim();
+        state.page = 1;
+        loadData();
+    },300);
+}
+
+// ── Sort ──
+function toggleSort(key){
+    if(state.sort && state.sort.startsWith(key)){
+        if(state.sort.includes("desc")) state.sort = key+":asc";
+        else state.sort = key+":desc";
+    } else {
+        state.sort = key+":asc";
+    }
+    loadData();
+}
+
+// ── Filters ──
+function hasFilter(key){return state.filters.some(f=>f.field===key);}
+function showFilter(e,key){
+    e.stopPropagation();
+    let popup = document.getElementById("filter-popup");
+    if(!popup){
+        popup = document.createElement("div"); popup.id="filter-popup"; popup.className="filter-popup";
+        popup.innerHTML = `<select id="flt-op"><option value="contains">包含</option><option value="eq">等于</option><option value="startswith">开头</option><option value="endswith">结尾</option><option value="gt">大于</option><option value="lt">小于</option><option value="isnull">为空</option></select>
+            <input type="text" id="flt-val" placeholder="值"><button onclick="applyFilter()">确定</button> <button onclick="clearFilter()">清除</button>`;
+        document.body.appendChild(popup);
+    }
+    popup.style.left = e.clientX+"px"; popup.style.top = (e.clientY+10)+"px";
+    popup.classList.add("active");
+    document.getElementById("flt-val").value = "";
+    popup._key = key;
+}
+window.applyFilter = function(){
+    const key = document.getElementById("filter-popup")._key;
+    const op = document.getElementById("flt-op").value;
+    const val = document.getElementById("flt-val").value;
+    state.filters = state.filters.filter(f=>f.field!==key);
+    if(val||op==="isnull") state.filters.push({field:key,op,value:val});
+    state.page = 1;
+    document.getElementById("filter-popup").classList.remove("active");
+    loadData();
+};
+window.clearFilter = function(){
+    const key = document.getElementById("filter-popup")._key;
+    state.filters = state.filters.filter(f=>f.field!==key);
+    document.getElementById("filter-popup").classList.remove("active");
+    loadData();
+};
+
+// ── Pagination ──
+function renderPagination(d){
+    const pages = d.total_pages;
+    let html = `<button onclick="goPage(1)" ${state.page<=1?"disabled":""}>«</button>
+        <button onclick="goPage(${state.page-1})" ${state.page<=1?"disabled":""}>‹</button>`;
+    for(let p=Math.max(1,state.page-2); p<=Math.min(pages,state.page+2); p++){
+        html += `<button class="${p===state.page?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    }
+    html += `<button onclick="goPage(${state.page+1})" ${state.page>=pages?"disabled":""}>›</button>
+        <button onclick="goPage(${pages})" ${state.page>=pages?"disabled":""}>»</button>
+        <select onchange="state.pageSize=parseInt(this.value);state.page=1;loadData()">
+            ${[20,50,100,200].map(n=>`<option ${state.pageSize===n?'selected':''}>${n}</option>`).join("")}
+        </select> 条/页`;
+    document.getElementById("pagination").innerHTML = html;
+}
+function goPage(p){state.page = p; loadData();}
+function renderStatus(d){
+    document.getElementById("status-info").innerHTML =
+        `共 <b>${d.total}</b> 条 · 第 <b>${d.page}/${d.total_pages}</b> 页`;
+}
+
+// ── Selection ──
+function toggleSelect(id,checked){
+    checked ? state.selected[id]=true : delete state.selected[id];
+    updateBatchBar();
+}
+function selectAll(checked){
+    const checkboxes = document.querySelectorAll("#grid-body input[type=checkbox]");
+    checkboxes.forEach(cb => {
+        cb.checked = checked;
+        const id = parseInt(cb.closest("tr").dataset.id);
+        checked ? state.selected[id]=true : delete state.selected[id];
+    });
+    updateBatchBar();
+}
+function clearSelection(){
+    state.selected={};
+    document.getElementById("batch-select-all").checked = false;
+    updateBatchBar();
+    loadData();
+}
+function updateBatchBar(){
+    const count = Object.keys(state.selected).length;
+    const bar = document.getElementById("batch-bar");
+    const allCb = document.getElementById("batch-select-all");
+    const totalVisible = document.querySelectorAll("#grid-body tr").length;
+    if(count>0){
+        bar.classList.add("active");
+        document.getElementById("batch-count").textContent=`已选 ${count} 项`;
+        allCb.checked = count >= totalVisible;
+        allCb.indeterminate = count > 0 && count < totalVisible;
+    } else {
+        bar.classList.remove("active");
+        allCb.checked = false;
+        allCb.indeterminate = false;
+    }
+}
+document.getElementById("batch-field").onchange = function(){
+    const f=this.value;
+    document.getElementById("batch-value").style.display = (f&&f!=="status")?"inline":"none";
+    document.getElementById("batch-status-val").style.display = f==="status"?"inline":"none";
+};
+async function batchApply(){
+    const field = document.getElementById("batch-field").value;
+    if(!field) return;
+    const val = field==="status" ? document.getElementById("batch-status-val").value : document.getElementById("batch-value").value;
+    const ids = Object.keys(state.selected).map(Number);
+    if(!ids.length || !val) return;
+    const r = await fetch(API+"/books/batch-edit",{
+        method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${TOKEN}`},
+        body:JSON.stringify({ids,changes:{[field]:val}}),
+    });
+    const d = await r.json();
+    toast(`已更新 ${d.updated} 条`);
+    clearSelection();
+    loadData();
+}
+
+async function batchDelete(){
+    const ids = Object.keys(state.selected).map(Number);
+    if(!ids.length) return;
+    if(!confirm(`确定删除选中的 ${ids.length} 本图书？此操作不可撤销。`)) return;
+    const r = await fetch(API+"/books/batch-delete",{
+        method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${TOKEN}`},
+        body:JSON.stringify(ids),
+    });
+    const d = await r.json();
+    toast(`已删除 ${d.deleted} 本`);
+    clearSelection();
+    loadData();
+}
+
+// ── Context menu ──
+function showCtxMenu(e,id,tr){
+    e.preventDefault();
+    state.ctxRow = id;
+    const menu = document.getElementById("ctx-menu");
+    menu.style.left = e.clientX+"px"; menu.style.top = e.clientY+"px";
+    menu.classList.add("active");
+}
+window.ctxView = function(){window.open("/book/"+state.ctxRow+".html","_blank");};
+window.ctxEdit = function(){editBook(state.ctxRow);document.getElementById("ctx-menu").classList.remove("active");};
+window.ctxCopyISBN = async function(){
+    const r = await fetch(API+"/books/"+state.ctxRow,{headers:{"Authorization":`Bearer ${TOKEN}`}});
+    const d = await r.json();
+    navigator.clipboard.writeText(d.isbn||""); toast("ISBN已复制");
+};
+window.ctxDelete = async function(){
+    if(!confirm("确定删除？")) return;
+    await api("/books/"+state.ctxRow,{method:"DELETE"});
+    toast("已删除"); loadData();
+};
+
+// ── CSV ──
+async function exportCSV(){
+    const params = new URLSearchParams();
+    if(state.search) params.set("search",state.search);
+    if(state.sort) params.set("sort",state.sort);
+    try {
+        const r = await fetch(API+"/books/export/csv?"+params,{headers:{"Authorization":`Bearer ${TOKEN}`}});
+        if(!r.ok){ toast("导出失败: "+(await r.json()).detail,'error'); return; }
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "books_export.csv"; a.click();
+        URL.revokeObjectURL(url);
+        toast("导出成功");
+    } catch(e){ toast("导出失败: "+e.message,'error'); }
+}
+async function importCSV(input){
+    const file = input.files[0]; if(!file) return;
+    const fd = new FormData(); fd.append("file",file);
+    const r = await fetch(API+"/books/import/csv",{method:"POST",headers:{"Authorization":`Bearer ${TOKEN}`},body:fd});
+    const d = await r.json();
+    toast(`✅ 创建${d.created} 更新${d.updated} 跳过${d.skipped}`+(d.errors.length?` ⚠️ ${d.errors.length}个错误`:""));
+    input.value = ""; loadData();
+}
+
+// ── Rebuild ──
+async function rebuildSite(){
+    if(!confirm("确定重新构建并发布站点？")) return;
+    await api("/admin/rebuild",{method:"POST"}); toast("站点已重新构建！");
+}
+
+// ── Legacy modal wrappers (kept for editBook) ──
+// The edit modal from original books.html is preserved below
+</script>
+
+<!-- Edit modal (preserved from original) -->
+<div class="modal-overlay" id="book-modal">
+    <div class="modal"><h2>编辑图书</h2>
+        <form onsubmit="saveBook(event)">
+            <input type="hidden" id="book-id">
+            <div class="form-group"><label>书名</label><input type="text" id="book-title" required></div>
+            <div class="form-row">
+                <div class="form-group"><label>作者</label><input type="text" id="book-author-name" list="author-list"><datalist id="author-list"></datalist></div>
+                <div class="form-group"><label>出版社</label><input type="text" id="book-publisher-name" list="publisher-list"><datalist id="publisher-list"></datalist></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>分类号</label><input type="text" id="book-category" list="category-list"><datalist id="category-list"></datalist></div>
+                <div class="form-group"><label>出版年份</label><input type="number" id="book-year"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>ISBN</label><div style="display:flex;gap:0.5rem"><input type="text" id="book-isbn" style="flex:1"><button class="btn btn-outline btn-sm" onclick="autoFill()">🔍 自动补全</button></div></div>
+                <div class="form-group"><label>版次</label><input type="text" id="book-edition"></div>
+            </div>
+            <div class="form-group"><label>简介</label><textarea id="book-summary"></textarea></div>
+            <div class="form-group"><label>状态</label><select id="book-status"><option value="draft">草稿</option><option value="published">已发布</option></select></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" onclick="closeModal('book-modal')">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Edit modal logic
+function openAddModal() {
+    document.getElementById("book-id").value = "";
+    document.getElementById("book-title").value = "";
+    document.getElementById("book-author-name").value = "";
+    document.getElementById("book-publisher-name").value = "";
+    document.getElementById("book-category").value = "";
+    document.getElementById("book-year").value = "";
+    document.getElementById("book-isbn").value = "";
+    document.getElementById("book-edition").value = "";
+    document.getElementById("book-summary").value = "";
+    document.getElementById("book-status").value = "draft";
+    document.querySelector("#book-modal h2").textContent = "新建图书";
+    openModal("book-modal");
+}
+
+async function editBook(id){
+    const book = await api("/books/"+id);
+    document.getElementById("book-id").value = book.id;
+    document.getElementById("book-title").value = book.title;
+    document.getElementById("book-author-name").value = book.author?.name||"";
+    document.getElementById("book-publisher-name").value = book.publisher?.name||"";
+    document.getElementById("book-category").value = book.category?.code||"";
+    document.getElementById("book-year").value = book.pub_year||"";
+    document.getElementById("book-isbn").value = book.isbn||"";
+    document.getElementById("book-edition").value = book.edition||"";
+    document.getElementById("book-summary").value = book.summary||"";
+    document.getElementById("book-status").value = book.status;
+    openModal("book-modal");
+}
+
+async function autoFill(){
+    var isbn=document.getElementById('book-isbn').value.trim().replace(/[\s-]/g,'');
+    if(!isbn||isbn.length<10){toast('请输入有效的ISBN','error');return}
+    var btn=event.target;btn.disabled=true;btn.textContent='⏳...';
+    try{
+        var r=await fetch('/api/auto-fill-book?isbn='+encodeURIComponent(isbn));
+        if(!r.ok){var e=await r.json();throw new Error(e.detail)}
+        var d=await r.json();
+        if(d.title)document.getElementById('book-title').value=d.title;
+        if(d.publisher)document.getElementById('book-publisher-name').value=d.publisher;
+        if(d.pub_year)document.getElementById('book-year').value=d.pub_year;
+        if(d.edition)document.getElementById('book-edition').value=d.edition;
+        if(d.summary)document.getElementById('book-summary').value=d.summary;
+        if(d.category_code)document.getElementById('book-category').value=d.category_code;
+        if(d.author)document.getElementById('book-author-name').value=d.author;
+        toast('已补全 ✅');
+    }catch(err){toast('补全失败: '+err.message,'error')}
+    btn.disabled=false;btn.textContent='🔍 自动补全';
+}
+
+async function saveBook(e){
+    e.preventDefault();
+    const id = document.getElementById("book-id").value;
+    const authorName = document.getElementById("book-author-name").value.trim();
+    const pubName = document.getElementById("book-publisher-name").value.trim();
+    const body = {
+        title: document.getElementById("book-title").value,
+        category_code: document.getElementById("book-category").value||null,
+        pub_year: document.getElementById("book-year").value||null,
+        isbn: document.getElementById("book-isbn").value||null,
+        edition: document.getElementById("book-edition").value||null,
+        summary: document.getElementById("book-summary").value||null,
+        status: document.getElementById("book-status").value,
+    };
+    if(authorName) body.author = authorName;
+    if(pubName) body.publisher = pubName;
+    Object.keys(body).forEach(k=>{if(body[k]===""||body[k]===null)delete body[k]});
+
+    const url = id ? API+"/books/batch-edit" : API+"/books/batch-create";
+    const payload = id ? {ids:[parseInt(id)],changes:body} : body;
+    await fetch(url,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${TOKEN}`},body:JSON.stringify(payload)});
+    closeModal("book-modal"); toast(id?"已更新":"已创建"); loadData();
+}
+
+// Preload datalists
+(async()=>{
+    const [authors,publishers,cats] = await Promise.all([api("/authors"),api("/publishers"),api("/categories")]);
+    document.getElementById("author-list").innerHTML = authors.map(a=>`<option value="${a.name}">`).join("");
+    document.getElementById("publisher-list").innerHTML = publishers.map(p=>`<option value="${p.name}">`).join("");
+    document.getElementById("category-list").innerHTML = cats.map(c=>`<option value="${c.code}">`).join("");
+})();
+</script>
+{% endblock %}

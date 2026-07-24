@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-hero">
+    <h2>📰 文章</h2>
+    <p>馆藏文章与使用指南</p>
+</div>
+
+{% if articles %}
+<div class="article-list">
+    {% for a in articles %}
+    <a href="{{ base_path }}/articles/{{ a.slug }}.html" class="article-item">
+        <div class="article-date">
+            <div class="article-date-day">{{ a.published_at.strftime('%d')|int if a.published_at else '--' }}</div>
+            <div class="article-date-month">{{ a.published_at.strftime('%m')|int if a.published_at else '--' }}月</div>
+        </div>
+        <div class="article-content">
+            <div class="article-title">{{ a.title }}</div>
+            <div class="article-meta">{{ a.author_name or '佚名' }}</div>
+            {% if a.summary %}<div class="article-summary">{{ a.summary[:120] }}</div>{% endif %}
+        </div>
+        <span class="article-arrow">→</span>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="section" style="text-align:center;padding:4rem 2rem">
+    <div style="font-size:4rem;margin-bottom:1rem">📭</div>
+    <h2 style="color:#1b5e20;font-size:1.3rem;margin-bottom:0.5rem">暂无文章</h2>
+    <p style="color:#8d9f8d">管理员正在准备内容，请稍后再来</p>
+</div>
+{% endif %}
+
+{% endblock %}

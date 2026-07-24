@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+{% block title %}系统设置{% endblock %}
+{% block main %}
+<div class="page-header"><h1>⚙ 系统设置</h1></div>
+
+{% macro key_card(id, icon, name, desc) %}
+<div class="card" style="margin-bottom:1rem;padding:1.2rem">
+    <h3>{{ icon }} {{ name }} API Key</h3>
+    <p style="color:#5a8b5a;font-size:0.85rem;margin:0.5rem 0">{{ desc }}</p>
+    <div id="{{ id }}-status" style="margin:0.8rem 0">正在检查...</div>
+    <div id="{{ id }}-actions" style="display:none;gap:0.5rem">
+        <input type="password" id="{{ id }}-key" placeholder="输入 {{ name }} API Key..." style="flex:1;padding:0.5rem;border:1px solid #dcebdc;border-radius:8px;font-size:0.85rem">
+        <button class="btn btn-primary btn-sm" onclick="saveKey('{{ id }}')">💾 保存</button>
+        <button class="btn btn-outline btn-sm" id="{{ id }}-delete" style="display:none" onclick="deleteKey('{{ id }}')">🗑 删除</button>
+    </div>
+</div>
+{% endmacro %}
+
+{{ key_card('deepseek', '🤖', 'DeepSeek', '图书元数据自动补全（ISBN查询）— AI 核心引擎') }}
+{{ key_card('tavily', '🔍', 'Tavily', '联网搜索 — DeepSeek 内置搜索不可用时的新补全方案') }}
+{{ key_card('google_books', '📚', 'Google Books', 'Google 图书数据库查询 — 最精确但需梯子或配额') }}
+
+<script>
+const KEYS = ['deepseek','tavily','google_books'];
+
+async function checkKeys(){
+    var s=await api('settings/keys/status');
+    KEYS.forEach(function(id){
+        var el=document.getElementById(id+'-status');
+        var act=document.getElementById(id+'-actions');
+        var del=document.getElementById(id+'-delete');
+        if(s[id]){
+            el.innerHTML='<span style="color:#43a047;font-weight:600">✅ 已配置</span> <span style="color:#8d9f8d;font-size:0.8rem">（密钥内容不可见）</span>';
+            del.style.display='inline-block';
+            document.getElementById(id+'-key').placeholder='输入新密钥以覆盖...';
+        }else{
+            el.innerHTML='<span style="color:#e53935;font-weight:600">❌ 未配置</span> <span style="color:#8d9f8d;font-size:0.8rem">请键入API密钥</span>';
+            del.style.display='none';
+        }
+        act.style.display='flex';
+    });
+}
+async function saveKey(id){
+    var k=document.getElementById(id+'-key').value.trim();
+    if(!k){toast('请输入密钥','error');return}
+    await api('settings/keys/'+id,{method:'POST',body:{key:k}});
+    document.getElementById(id+'-key').value='';
+    toast('已保存 ✅');checkKeys();
+}
+async function deleteKey(id){
+    if(!confirm('确定删除已保存的API密钥？'))return;
+    await api('settings/keys/'+id,{method:'DELETE'});
+    toast('已删除');checkKeys();
+}
+checkKeys();
+</script>
+{% endblock %}

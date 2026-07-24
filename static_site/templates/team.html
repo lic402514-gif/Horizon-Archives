@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="breadcrumb"><a href="{{ base_path }}/index.html">首页</a> / 管理团队</div>
+<h1 style="font-family:'Playfair Display','Noto Serif SC',serif;color:#1b5e20;margin-bottom:1.5rem">👥 管理团队</h1>
+
+{% if admins %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem">
+{% for u in admins %}
+<div style="background:#fff;border-radius:12px;padding:1.5rem;box-shadow:0 2px 8px rgba(0,0,0,0.05);text-align:center">
+    {% if u.avatar_url %}
+    <img src="{{ u.avatar_url }}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:0.8rem">
+    {% else %}
+    <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#66bb6a,#388e3c);display:flex;align-items:center;justify-content:center;font-size:2rem;color:#fff;margin:0 auto 0.8rem;font-weight:700">{{ u.username[:1].upper() }}</div>
+    {% endif %}
+    
+    {% if 'username' in u.public_fields %}<h3 style="color:#1b5e20;margin-bottom:0.3rem">{{ u.username }}</h3>{% endif %}
+    
+    <div style="font-size:0.85rem;color:#5a8b5a;line-height:1.8">
+    {% if 'role' in u.public_fields %}<div>🔐 {{ u.role }}</div>{% endif %}
+    {% if 'email' in u.public_fields %}<div>📧 {{ u.email }}</div>{% endif %}
+    {% if 'qq' in u.public_fields %}<div>💬 QQ: {{ u.qq }}</div>{% endif %}
+    {% if 'wechat' in u.public_fields %}<div>💬 微信: {{ u.wechat }}</div>{% endif %}
+    </div>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div style="text-align:center;padding:3rem;color:#6b7d6b">暂无管理人员信息</div>
+{% endif %}
+{% endblock %}

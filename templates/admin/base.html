@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}管理后台{% endblock %} — 地平线档案馆（Horizon Archive）</title>
+    <style>
+        :root {
+            --bg: #f4faf5; --card: #fff; --text: #2f3b2f; --muted: #6b7d6b;
+            --border: #dcebdc; --accent: #43a047; --accent-hover: #2e7d32;
+            --danger: #c62828; --success: #43a047; --warning: #f59e0b;
+            --sidebar-w: 230px;
+        }
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
+        a{color:#2e5e32;text-decoration:none}
+        .sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#ecf8ee 0%,#d0ead2 50%,#b8dfbb 100%);color:#2f3b2f;padding:1.5rem 0;position:fixed;top:0;left:0;bottom:0;overflow-y:auto;z-index:100;box-shadow:3px 0 22px rgba(46,125,50,0.08)}
+        .sidebar h2{padding:0 1.25rem 1rem;font-size:1.1rem;border-bottom:1px solid rgba(46,125,50,0.12);margin-bottom:0.5rem}
+        .sidebar h2 a{color:#1b5e20}
+        .sidebar nav a{display:block;padding:0.55rem 1.25rem;color:#2e5e32;font-size:0.88rem;transition:0.15s;border-radius:0;font-weight:500}
+        .sidebar nav a:hover,.sidebar nav a.active{color:#1b5e20;background:rgba(255,255,255,0.55);font-weight:600}
+        .sidebar nav a .icon{margin-right:0.5rem}
+        .sidebar-footer{padding:1rem 1.25rem;border-top:1px solid rgba(46,125,50,0.12);position:sticky;bottom:0;background:inherit}
+        .sidebar-footer .user{color:#4c8b5b;font-size:0.8rem;margin-bottom:0.5rem;display:flex;flex-direction:column;align-items:center}
+        .sidebar-footer button{background:var(--danger);color:#fff;border:none;padding:0.35rem 0.75rem;border-radius:8px;cursor:pointer;font-size:0.78rem;width:100%}
+        .main{margin-left:var(--sidebar-w);flex:1;padding:1.5rem 2rem}
+        .page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem}
+        .page-header h1{font-size:1.4rem;color:#1b5e20}
+        .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem;box-shadow:0 2px 10px rgba(46,125,50,0.04)}
+        .card h3{font-size:0.85rem;color:#4c8b5b;margin-bottom:0.5rem;text-transform:uppercase}
+        .card .value{font-size:1.75rem;font-weight:700;color:#1b5e20}
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem}
+        table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+        th,td{padding:0.65rem 1rem;text-align:left;border-bottom:1px solid var(--border);font-size:0.9rem}
+        th{background:var(--bg);font-weight:600;color:#4c8b5b;font-size:0.8rem}
+        tr:last-child td{border-bottom:none}tr:hover{background:#fafdfa}
+        .btn{display:inline-block;padding:0.45rem 1rem;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;border:none;transition:0.15s;font-family:inherit}
+        .btn-primary{background:linear-gradient(135deg,#66bb6a,#43a047);color:#fff;box-shadow:0 2px 8px rgba(46,125,50,0.15)}.btn-primary:hover{background:linear-gradient(135deg,#43a047,#2e7d32);transform:translateY(-1px)}
+        .btn-success{background:var(--success);color:#fff;box-shadow:0 2px 8px rgba(46,125,50,0.15)}.btn-success:hover{background:#2e7d32;transform:translateY(-1px)}
+        .btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{background:#b71c1c}
+        .btn-warning{background:var(--warning);color:#fff}.btn-warning:hover{background:#d97706}
+        .btn-outline{background:transparent;border:1px solid #a5d6a7;color:#2e5e32}.btn-outline:hover{background:#e8f5e9}
+        .btn-sm{padding:0.25rem 0.6rem;font-size:0.8rem;border-radius:6px}
+        .form-group{margin-bottom:1rem}
+        .form-group label{display:block;font-size:0.8rem;font-weight:600;margin-bottom:0.3rem;color:#4c8b5b}
+        .form-group input,.form-group select,.form-group textarea{width:100%;padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;outline:none;transition:border-color 0.2s}
+        .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#a5d6a7}
+        .form-group textarea{min-height:80px;resize:vertical}
+        .form-row{display:flex;gap:1rem}.form-row .form-group{flex:1}
+        .badge{display:inline-block;padding:0.15rem 0.5rem;border-radius:10px;font-size:0.72rem;font-weight:600}
+        .badge-success{background:#e6f7ec;color:#4d8b5b}.badge-danger{background:#fdf0ed;color:#c06050}
+        .badge-warning{background:#fffbeb;color:#92400e}.badge-info{background:#e0f2f1;color:#1e40af}
+        .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:200;align-items:center;justify-content:center}
+        .modal-overlay.active{display:flex}
+        .modal{background:var(--card);border-radius:16px;padding:2rem;width:90%;max-width:600px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 30px rgba(46,125,50,0.12)}
+        .modal h2{margin-bottom:1rem;color:#1b5e20;font-size:1.2rem}
+        .modal-actions{display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1.5rem}
+        .toast{position:fixed;top:1rem;right:1rem;padding:0.75rem 1.25rem;border-radius:10px;color:#fff;font-weight:600;z-index:300;animation:slideIn 0.3s;box-shadow:0 4px 16px rgba(0,0,0,0.12)}
+        .toast-success{background:linear-gradient(135deg,#66bb6a,#43a047)}.toast-error{background:var(--danger)}
+        @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+        .tag-chips{display:flex;flex-wrap:wrap;gap:0.35rem}
+        .tag-chip{display:inline-block;padding:0.2rem 0.6rem;background:#f4faf5;border:1px solid #a5d6a7;border-radius:12px;font-size:0.8rem;cursor:pointer;transition:0.15s;color:#2e5e32}
+        .tag-chip.selected{background:var(--accent);color:#fff;border-color:var(--accent)}
+    </style>
+</head>
+<body>
+    <aside class="sidebar" style="padding-bottom:120px">
+        <h2><a href="/admin">📚 管理后台</a></h2>
+        <nav>
+            <a href="/admin"><span class="icon">📊</span> 仪表盘</a>
+            <a href="/admin/book-upload"><span class="icon">📤</span> 资源上传</a>
+            <a href="/admin/books"><span class="icon">📖</span> 图书管理</a>
+            <a href="/admin/assets"><span class="icon">🗄</span> 资源库</a>
+            <a href="/admin/issues"><span class="icon">🗳</span> 议题管理</a>
+            <a href="/admin/elections"><span class="icon">🏛</span> 选举管理</a>
+            <a href="/admin/quotes"><span class="icon">💬</span> 格言卡</a>
+            <a href="/admin/articles"><span class="icon">📰</span> 文章管理</a>
+            <a href="/admin/users"><span class="icon">👥</span> 用户管理</a>
+            <a href="/admin/settings"><span class="icon">⚙</span> 系统设置</a>
+            <a href="/admin/invite-codes"><span class="icon">🎫</span> 邀请码</a>
+            <a href="/admin/catalog"><span class="icon">📂</span> 分类管理</a>
+            <a href="/admin/roles"><span class="icon">🔐</span> 权限管理</a>
+            <a href="/admin/stats"><span class="icon">📈</span> 统计</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user">
+                <div id="sidebar-avatar" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#66bb6a,#388e3c);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;margin-bottom:6px">?</div>
+                <div id="sidebar-username" style="margin-bottom:4px;color:#1b5e20">管理员</div>
+            </div>
+            <input type="file" id="avatar-upload" accept="image/*" style="display:none" onchange="uploadAvatar()">
+            <button onclick="document.getElementById('avatar-upload').click()" style="background:#a5d6a7;color:#2e5e32;border:none;padding:0.35rem 0.75rem;border-radius:8px;cursor:pointer;font-size:0.7rem;width:100%;margin-bottom:0.3rem;font-weight:600">更换头像</button>
+            <button onclick="logout()">退出登录</button>
+        </div>
+    </aside>
+    <div id="toast-container"></div>
+    <script>
+        const API = '/api';
+        const TOKEN = '';  // Cookie auth, no JWT token needed
+        function api(path, opts={}) {
+            const headers = {...opts.headers};
+            if (opts.body && !(opts.body instanceof FormData)) {
+                headers['Content-Type'] = 'application/json';
+                opts.body = JSON.stringify(opts.body);
+            }
+            return fetch(API + '/' + path.replace(/^\//, ''), {...opts, headers, credentials: 'same-origin'}).then(r => {
+                if (r.status === 401) { location.href='/admin/login'; throw new Error('Unauthorized'); }
+                if (!r.ok) return r.json().then(e => { throw new Error(e.detail || 'Request failed') });
+                if (r.status === 204) return null;
+                return r.json();
+            });
+        }
+        function toast(msg, type='success') {
+            const el = document.createElement('div');
+            el.className = 'toast toast-'+type; el.textContent = msg;
+            document.getElementById('toast-container').appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        }
+        function logout() {
+            document.cookie = 'session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/';
+            location.href = '/admin/login';
+        }
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function loadUserInfo() {
+            api('/me').then(function(u) {
+                document.getElementById('sidebar-username').textContent = u.username;
+                var av = document.getElementById('sidebar-avatar');
+                if (u.avatar_url) {
+                    av.style.backgroundImage = 'url(' + u.avatar_url + ')';
+                    av.style.backgroundSize = 'cover'; av.style.backgroundPosition = 'center';
+                    av.textContent = '';
+                } else { av.textContent = u.username.charAt(0).toUpperCase(); }
+            }).catch(function(){});
+        }
+        async function uploadAvatar() {
+            var f = document.getElementById('avatar-upload').files[0];
+            if (!f) return;
+            var fd = new FormData(); fd.append('file', f); fd.append('asset_type', 'user_avatar');
+            var r = await api('/assets/upload', {method:'POST', body:fd});
+            await api('/users/me/avatar', {method:'PUT', body:{asset_id: r.id}});
+            loadUserInfo(); toast('头像已更新');
+        }
+        loadUserInfo();
+
+        // ═══════════════════════════════════════════════════════════════
+        //  Reusable DataGrid — sort, search, select, batch-delete
+        // ═══════════════════════════════════════════════════════════════
+        function DataGrid(id, opts) {
+            var self = this;
+            self.id = id; self.sid = id.replace(/-/g,'_'); // safe JS identifier
+            self.opts = opts || {};
+            self.rows = []; self.selected = {}; self.sortCol = null; self.sortAsc = true;
+            self.searchTerm = '';
+
+            self.setData = function(data) { self.rows = data; self.selected = {}; self.render(); };
+
+            self.render = function() {
+                var term = self.searchTerm.toLowerCase();
+                var filtered = self.rows.filter(function(r) {
+                    if (!term) return true;
+                    return Object.values(r).some(function(v) {
+                        return String(v || '').toLowerCase().indexOf(term) !== -1;
+                    });
+                });
+                if (self.sortCol) {
+                    filtered.sort(function(a, b) {
+                        var va = a[self.sortCol], vb = b[self.sortCol];
+                        if (va == null) va = ''; if (vb == null) vb = '';
+                        if (typeof va === 'number' && typeof vb === 'number') return self.sortAsc ? va - vb : vb - va;
+                        return self.sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+                    });
+                }
+
+                var cols = self.opts.columns || [];
+                var allChecked = filtered.length > 0 && filtered.every(function(r) { return self.selected[r.id]; });
+                var selectedCount = Object.values(self.selected).filter(Boolean).length;
+                var sid = self.sid;
+
+                var h = '<div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:1rem">';
+                h += '<input type="text" placeholder="🔍 搜索..." style="flex:1;padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;outline:none" value="' + self.searchTerm + '" oninput="'+sid+'.searchTerm=this.value;'+sid+'.render()">';
+                h += '<button class="btn btn-danger btn-sm" onclick="'+sid+'.batchDelete()">🗑 删除选中 (<span id="'+self.id+'-selcount">0</span>)</button>';
+                h += '</div>';
+                h += '<table><thead><tr>';
+                h += '<th style="width:36px"><input type="checkbox" ' + (allChecked ? 'checked' : '') + ' onclick="var s=this.checked;'+sid+'.rows.forEach(function(r){'+sid+'.selected[r.id]=s});'+sid+'.render()"></th>';
+                cols.forEach(function(c) {
+                    var arrow = self.sortCol === c.key ? (self.sortAsc ? ' ▲' : ' ▼') : '';
+                    h += '<th style="cursor:pointer" onclick="if('+sid+'.sortCol===c.key){'+sid+'.sortAsc=!'+sid+'.sortAsc}else{'+sid+'.sortCol=c.key;'+sid+'.sortAsc=true}'+sid+'.render()">' + c.label + arrow + '</th>';
+                });
+                h += '</tr></thead><tbody>';
+
+                filtered.forEach(function(r) {
+                    var checked = !!self.selected[r.id];
+                    h += '<tr style="background:' + (checked ? '#e8f5e9' : '') + '">';
+                    h += '<td><input type="checkbox" ' + (checked ? 'checked' : '') + ' onclick="'+sid+'.selected['+r.id+']=event.target.checked;'+sid+'.render()"></td>';
+                    cols.forEach(function(c) {
+                        var v = r[c.key] != null ? String(r[c.key]) : '';
+                        if (term && v.toLowerCase().indexOf(term) !== -1) {
+                            v = v.replace(new RegExp('(' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'),
+                                '<mark style="background:#a5d6a7;padding:0 2px;border-radius:2px">$1</mark>');
+                        }
+                        h += '<td>' + v + '</td>';
+                    });
+                    h += '</tr>';
+                });
+                h += '</tbody></table>';
+                h += '<div style="font-size:0.8rem;color:var(--muted);margin-top:0.5rem">共 ' + filtered.length + ' / ' + self.rows.length + ' 条</div>';
+                document.getElementById(self.id).innerHTML = h;
+                var sc = document.getElementById(self.id+'-selcount');
+                if(sc) sc.textContent = selectedCount;
+            };
+
+            self.batchDelete = async function() {
+                var ids = Object.keys(self.selected).filter(function(k) { return self.selected[k]; });
+                if (!ids.length) return toast('请先选择', 'error');
+                if (!confirm('确定删除 ' + ids.length + ' 条记录？')) return;
+                for (var i = 0; i < ids.length; i++) {
+                    var url = self.opts.deleteUrl + '/' + ids[i];
+                    url = url.replace('/api/','');  // strip api prefix — api() helper adds it
+                    try { await api(url, { method: 'DELETE' }); } catch (e) {}
+                }
+                toast('已删除 ' + ids.length + ' 条');
+                if (self.opts.onDelete) self.opts.onDelete();
+            };
+
+            window[self.sid] = self;
+        }
+    </script>
+    <main class="main">
+        {% block main %}{% endblock %}
+    </main>
+</body>
+</html>

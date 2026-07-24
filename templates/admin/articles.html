@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+{% block title %}文章管理{% endblock %}
+{% block main %}
+<div class="page-header">
+    <h1>📰 文章管理</h1>
+    <a href="/admin/article-editor" class="btn btn-primary">＋ 新建文章</a>
+</div>
+<div id="article-grid"></div>
+<script>
+var dg = new DataGrid('article-grid', {
+    columns: [
+        {key:'id',label:'ID'},
+        {key:'title',label:'标题'},
+        {key:'slug',label:'Slug'},
+        {key:'author_name',label:'作者'},
+        {key:'status',label:'状态'},
+        {key:'updated_at',label:'更新时间'},
+    ],
+    deleteUrl: '/api/articles',
+    onDelete: loadArticles
+});
+
+async function loadArticles() {
+    var r = await api('articles');
+    dg.setData(r);
+}
+loadArticles();
+</script>
+{% endblock %}

@@ -1,0 +1,120 @@
+{% extends "admin/base.html" %}
+{% block title %}格言卡管理{% endblock %}
+{% block main %}
+<div class="page-header"><h1>💬 格言卡管理</h1>
+    <button class="btn btn-primary btn-sm" onclick="showEdit()">＋ 新增格言</button>
+</div>
+<div id="quote-grid"></div>
+
+<div class="modal-overlay" id="quote-modal"><div class="modal" style="max-width:500px">
+    <h2 id="qt-title">新增格言</h2>
+    <input type="hidden" id="qt-id">
+    <div class="form-group"><label>格言正文 *</label><textarea id="qt-content" style="height:80px;width:100%;padding:0.5rem;border:1px solid #dcebdc;border-radius:6px;resize:vertical"></textarea></div>
+    <div class="form-group"><label>作者</label><input id="qt-author"></div>
+    <div class="form-group"><label>排序</label><input id="qt-sort" type="number" value="0" style="width:80px"></div>
+    <div class="form-group"><label>背景图片</label>
+        <input type="file" id="qt-image" accept="image/*" onchange="previewImage()" style="display:block;margin-top:0.3rem">
+        <img id="qt-img-preview" style="max-width:200px;max-height:120px;margin-top:0.5rem;border-radius:8px;display:none">
+    </div>
+    <div class="form-group"><label>状态</label>
+        <select id="qt-status"><option value="active">启用</option><option value="inactive">停用</option></select>
+    </div>
+    <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('quote-modal')">取消</button>
+        <button class="btn btn-primary" onclick="saveQuote()">保存</button>
+    </div>
+</div></div>
+
+<script>
+var dg=new DataGrid('quote-grid',{
+    columns:[
+        {key:'id',label:'ID'},{key:'content',label:'格言'},{key:'author',label:'作者'},
+        {key:'sort_order',label:'排序'},{key:'status',label:'状态'},
+    ],
+    api:'quotes',
+    deleteUrl: '/api/quotes',
+});
+
+async function loadQuotes(){
+    var r=await api('quotes');
+    r.forEach(function(row){
+        row.status=row.status==='active'?'<span style=color:#43a047>启用</span>':'<span style=color:#999>停用</span>';
+        row.content=row.content.length>25?row.content.slice(0,25)+'...':row.content;
+    });
+    dg.setData(r);
+}
+
+function showEdit(id){
+    document.getElementById('qt-id').value=id||'';
+    document.getElementById('qt-title').textContent=id?'编辑格言':'新增格言';
+    if(id){
+        var r=drows.find(function(x){return x.id==id});
+        document.getElementById('qt-content').value=r.content;
+        document.getElementById('qt-author').value=r.author||'';
+        document.getElementById('qt-sort').value=r.sort_order||0;
+        document.getElementById('qt-status').value=r.status_raw||'active';
+    }else{
+        document.getElementById('qt-content').value='';
+        document.getElementById('qt-author').value='';
+        document.getElementById('qt-sort').value=0;
+    }
+    openModal('quote-modal');
+}
+
+async function saveQuote(){
+    var id=document.getElementById('qt-id').value;
+    var imgFile=document.getElementById('qt-image').files[0];
+    var assetId=null;
+    if(imgFile){
+        var sts=await api('oss/sts');
+        var key='quotes/'+Date.now()+'_'+imgFile.name;
+        var fd=new FormData();fd.append('key',key);fd.append('policy',sts.policy);
+        fd.append('Signature',sts.signature);fd.append('OSSAccessKeyId',sts.access_key_id);
+        fd.append('success_action_status','200');fd.append('file',imgFile);
+        await new Promise(function(resolve){
+            var iframe=document.createElement('iframe');
+            iframe.style.display='none';iframe.name='oss-upload-'+Date.now();
+            document.body.appendChild(iframe);
+            var form=document.createElement('form');
+            form.method='POST';form.action='https://'+sts.bucket+'.'+sts.endpoint;
+            form.enctype='multipart/form-data';form.target=iframe.name;
+            for(var pair of fd.entries()){
+                var input=document.createElement('input');
+                input.type='hidden';input.name=pair[0];
+                input.value=pair[1] instanceof File?''+pair[1].name:pair[1];
+                form.appendChild(input);
+            }
+            // For file, use direct append since we can't set input.value to File
+            var fi=document.createElement('input');fi.type='file';fi.name='file';
+            var dt=new DataTransfer();dt.items.add(imgFile);fi.files=dt.files;
+            form.appendChild(fi);
+            iframe.onload=function(){setTimeout(function(){document.body.removeChild(iframe);resolve()},500)};
+            document.body.appendChild(form);form.submit();
+            setTimeout(function(){document.body.removeChild(form)},100);
+        });
+        var r=await api('assets/register',{method:'POST',body:{filename:imgFile.name,object_key:key,size:imgFile.size,mime_type:imgFile.type,asset_type:'quote_bg',bucket:sts.bucket}});
+        assetId=r.id;
+    }
+    var body={
+        content:document.getElementById('qt-content').value,
+        author:document.getElementById('qt-author').value,
+        sort_order:parseInt(document.getElementById('qt-sort').value)||0,
+        status:document.getElementById('qt-status').value
+    };
+    if(assetId)body.asset_id=assetId;
+    await api('quotes'+(id?'/'+id:''),{method:id?'PUT':'POST',body:body});
+    await api('rebuild-ssg',{method:'POST'});
+    closeModal('quote-modal');loadQuotes();toast('已保存 · 页面已更新');
+}
+
+function previewImage(){
+    var f=document.getElementById('qt-image').files[0];
+    var p=document.getElementById('qt-img-preview');
+    if(f){p.src=URL.createObjectURL(f);p.style.display='block';}
+}
+
+// Init
+dg.render();
+loadQuotes();
+</script>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}议题投票 - 地平线档案馆（Horizon Archive）{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="/">首页</a> / 议题投票</div>
+
+<h1 style="font-family:'Playfair Display','Noto Serif SC',serif;color:#1b5e20;margin-bottom:1.5rem">🗳 议题投票</h1>
+
+{% if issues %}
+<div class="issue-grid">
+{% for issue in issues %}
+<a href="/issues/{{ issue.slug }}.html" class="issue-card">
+    <span class="tag tag-{{ issue.status }}">{{ {'draft':'草稿','discussion':'征集中','voting':'投票中','counting':'计票中','finished':'已结束','archived':'已归档'}.get(issue.status, issue.status) }}</span>
+    <h2>{{ issue.title }}</h2>
+    {% if issue.summary %}<p>{{ issue.summary }}</p>{% endif %}
+    <div class="meta">💬 {{ issue.comments|length if issue.comments else 0 }} · 🗳 {{ issue.votes|length if issue.votes else 0 }} 票{% if issue.creator %} · 创建者: {{ issue.creator.username }}{% endif %}</div>
+</a>
+{% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;color:#6b7d6b">
+    <p>暂无议题</p>
+</div>
+{% endif %}
+{% endblock %}

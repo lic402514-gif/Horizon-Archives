@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+
+<article class="book-detail">
+    {% if book_breadcrumb %}
+    <nav class="breadcrumb">
+        <a href="{{ base_path }}/index.html">首页</a>
+        {% for step in book_breadcrumb %}
+            {% if loop.last %}
+                <span class="sep">›</span> <strong>{{ step.name }}</strong>
+            {% else %}
+                <span class="sep">›</span> <a href="{{ base_path }}{{ step.url }}">{{ step.name }}</a>
+            {% endif %}
+        {% endfor %}
+    </nav>
+    {% elif book.category_code %}
+    <nav class="breadcrumb"><a href="{{ base_path }}/index.html">首页</a> <span class="sep">›</span> <span>未知分类 ({{ book.category_code }})</span></nav>
+    {% endif %}
+
+    <div class="page-hero">
+        <h2>{{ book.title }}</h2>
+        <div class="meta" style="margin-top:8px;position:relative;z-index:1;">
+            {% if book.author %}
+            <span>作者: <a href="{{ base_path }}/author/{{ book.author.name|lower|replace(' ','-') }}.html">{{ book.author.name }}</a></span>
+            {% endif %}
+            {% if book.publisher %}
+            <span>出版社: <a href="{{ base_path }}/publisher/{{ book.publisher.name|lower|replace(' ','-') }}.html">{{ book.publisher.name }}</a></span>
+            {% endif %}
+            {% if book.pub_year %}<span>出版年份: {{ book.pub_year }}</span>{% endif %}
+            {% if book.edition %}<span>版次: {{ book.edition }}</span>{% endif %}
+            {% if book.isbn %}<span>ISBN: {{ book.isbn }}</span>{% endif %}
+        </div>
+    </div>
+
+    {% if book.summary %}
+    <section class="summary">
+        <h3>内容简介</h3>
+        <p>{{ book.summary }}</p>
+    </section>
+    {% endif %}
+
+    {% if book.tags %}
+    <section class="tags">
+        <h3>标签</h3>
+        <div class="tag-list">
+            {% for tag in book.tags %}
+            <a href="{{ base_path }}/tag/{{ tag.name|lower|replace(' ','-') }}.html" class="tag">{{ tag.name }}</a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if book.category %}
+    <section class="classification">
+        <h3>分类</h3>
+        <p><a href="{{ base_path }}/category/{{ book.category.code }}.html">{{ book.category.code }} — {{ book.category.name }}</a></p>
+    </section>
+    {% endif %}
+
+    {% set all_downloads = [] %}
+    {% for file in book.files %}
+        {% set _ = all_downloads.append({'label': file.format, 'size': file.size, 'url': '/api/download/' ~ book.id|string ~ '?format=' ~ file.format|lower}) %}
+    {% endfor %}
+    {% for ba in book.book_assets_rel %}
+        {% if ba.relation_type in ('ebook','pdf','mobi','epub') and ba.asset %}
+            {% set label = ba.asset.extension|upper if ba.asset.extension else ba.relation_type|upper %}
+            {% set _ = all_downloads.append({'label': label, 'size': ba.asset.size, 'url': '/api/download/' ~ book.id|string ~ '?format=' ~ (ba.asset.extension|lower if ba.asset.extension else ba.relation_type|lower)}) %}
+        {% endif %}
+    {% endfor %}
+    {% if all_downloads %}
+    <section class="downloads">
+        <h3>下载</h3>
+        <div class="download-buttons">
+            {% for dl in all_downloads %}
+            <button onclick="downloadOrLogin('{{ dl.url }}')" class="btn btn-download">
+                下载 {{ dl.label }}
+                {% if dl.size %}<small>({{ "%.1f"|format(dl.size/1048576) }} MB)</small>{% endif %}
+            </button>
+            {% endfor %}
+        </div>
+        <p class="note">点击下载将自动检测登录状态，未登录会跳转到登录页。</p>
+    </section>
+    {% endif %}
+</article>
+
+{% endblock %}

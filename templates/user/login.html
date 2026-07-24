@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 — 地平线档案馆（Horizon Archive）</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .login-section {
+            display: flex; align-items: center; justify-content: center;
+            min-height: calc(100vh - 200px); padding: 40px 0;
+        }
+        .login-card {
+            background: #fff; border-radius: 18px; padding: 2.8rem 2.5rem;
+            width: 420px; max-width: 100%;
+            box-shadow: 0 10px 40px rgba(46,125,50,0.12);
+            border: 1px solid #dcebdc;
+        }
+        .login-card .logo { text-align: center; font-size: 2.5rem; margin-bottom: 0.25rem; }
+        .login-card h1 { font-size: 1.4rem; margin-bottom: 0.25rem; text-align: center; color: #1b5e20; }
+        .login-card .sub { color: #6b7d6b; text-align: center; margin-bottom: 1.5rem; font-size: 0.9rem; }
+        .login-card .info {
+            background: #e8f5e9; color: #2e5e32; padding: 0.75rem 1rem; border-radius: 8px;
+            font-size: 0.85rem; margin-bottom: 1.5rem; text-align: center; line-height: 1.5;
+        }
+        .fg { margin-bottom: 1rem; }
+        .fg label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; color: #4c8b5b; }
+        .fg input {
+            width: 100%; padding: 0.7rem 0.85rem; border: 1.5px solid #dcebdc;
+            border-radius: 10px; font-size: 0.95rem; outline: none; transition: border-color 0.2s;
+        }
+        .fg input:focus { border-color: #66bb6a; }
+        .btn-submit {
+            width: 100%; padding: 0.75rem;
+            background: linear-gradient(135deg, #66bb6a, #43a047);
+            color: #fff; border: none; border-radius: 26px;
+            font-size: 1rem; font-weight: 700; cursor: pointer;
+            transition: background 0.25s ease; margin-top: 0.5rem;
+        }
+        .btn-submit:hover { background: linear-gradient(135deg, #43a047, #2e7d32); }
+        .err { color: #c62828; font-size: 0.85rem; margin-top: 0.75rem; text-align: center; display: none; }
+        .err.active { display: block; }
+        .login-links { text-align: center; margin-top: 1.2rem; font-size: 0.85rem; }
+        .login-links a { color: #43a047; text-decoration: none; font-weight: 600; }
+        .login-links a:hover { color: #1b5e20; }
+    </style>
+</head>
+<body>
+
+<div class="reading-progress" id="progressBar"></div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     侧边栏
+     ═══════════════════════════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <a href="/" class="sidebar-logo" style="text-decoration:none;">&#128214;</a>
+    <div class="sidebar-brand">
+      <a href="/" style="text-decoration:none;"><div class="sidebar-brand-name">哲学文学心理学<br><span class="sidebar-brand-sub">频道图书馆</span></div></a>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-title">导航</div>
+    <a class="nav-item" href="/">
+      <span class="nav-code">&#127968;</span><span class="nav-label">首页</span>
+    </a>
+    <a class="nav-item" href="/articles/">
+      <span class="nav-code">&#128196;</span><span class="nav-label">文章</span>
+    </a>
+
+    <div class="nav-section-title">CLC 分类浏览</div>
+    {% if all_categories %}
+    {% for cat in all_categories if cat.parent_code is none %}
+    <a class="nav-item" data-cat="{{ cat.code }}" href="/category/{{ cat.code }}.html" title="{{ cat.name }}">
+      <span class="nav-code">{{ cat.code }}</span><span class="nav-label">{{ cat.name }}</span>
+    </a>
+    {% endfor %}
+    {% else %}
+    <a class="nav-item" data-cat="A" href="/category/A.html" title="马克思主义、列宁主义、毛泽东思想、邓小平理论"><span class="nav-code">A</span><span class="nav-label">马克思主义、列宁主义、毛泽东思想、邓小平理论</span></a>
+    <a class="nav-item" href="/category/B.html"><span class="nav-code">B</span><span class="nav-label">哲学、宗教</span></a>
+    <a class="nav-item" href="/category/C.html"><span class="nav-code">C</span><span class="nav-label">社会科学总论</span></a>
+    <a class="nav-item" href="/category/D.html"><span class="nav-code">D</span><span class="nav-label">政治、法律</span></a>
+    <a class="nav-item" href="/category/I.html"><span class="nav-code">I</span><span class="nav-label">文学</span></a>
+    <a class="nav-item" href="/category/K.html"><span class="nav-code">K</span><span class="nav-label">历史、地理</span></a>
+    <a class="nav-item" href="/category/T.html"><span class="nav-code">T</span><span class="nav-label">工业技术</span></a>
+    {% endif %}
+  </nav>
+
+  <div class="sidebar-footer" style="cursor:pointer;" onclick="window.location.href='/register'">
+    <div class="sidebar-avatar">注</div>
+    <div class="sidebar-user-info">
+      <div style="font-weight:700;font-size:13px;color:#1b5e20;">访客</div>
+      <div style="font-size:10px;color:#4c8b5b;">点击注册</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     主内容区
+     ═══════════════════════════════════════════════════════════════════ -->
+<main class="main-content" id="mainContent">
+
+  <div class="topbar">
+    <button class="mobile-menu-btn" id="mobileMenuBtn">&#9776;</button>
+    <form class="search-box" onsubmit="return doSearch(event)" style="display:flex;">
+      <input type="text" placeholder="搜索书名、作者、ISBN…" id="searchInput">
+      <button type="submit" class="search-btn">搜索</button>
+    </form>
+    <div class="topbar-actions">
+      <a href="/register" class="icon-btn" title="注册">&#9997;</a>
+    </div>
+  </div>
+
+  <div class="login-section">
+    <div class="login-card">
+      <div class="logo">&#128214;</div>
+      <h1>登录账号</h1>
+      <p class="sub">登录后即可下载资源</p>
+      <div class="info">本站资源免费开放浏览，下载需登录验证。<br>如无账号，请使用邀请码注册。</div>
+      <div class="err" id="error"></div>
+      <form onsubmit="doLogin(event)">
+        <div class="fg"><label>用户名</label><input type="text" id="username" required autofocus placeholder="输入用户名"></div>
+        <div class="fg"><label>密码</label><input type="password" id="password" required placeholder="输入密码"></div>
+        <button type="submit" class="btn-submit">登 录</button>
+      </form>
+      <p class="login-links">还没有账号？<a href="/register">注册新账号</a></p>
+    </div>
+  </div>
+
+  <footer class="main-footer">
+    &copy; {{ now.year }} 地平线档案馆（Horizon Archive）资源小站 &middot; 本站为静态生成，所有资源下载需登录验证
+  </footer>
+</main>
+
+<div class="quick-float">
+  <button class="float-btn back-top" id="backTopBtn" title="回到顶部">&#8593;</button>
+</div>
+
+<script>
+// 移动端侧边栏
+(function() {
+  var mobileBtn = document.getElementById('mobileMenuBtn');
+  var sidebar = document.getElementById('sidebar');
+  var overlay = document.getElementById('sidebarOverlay');
+  mobileBtn.addEventListener('click', function() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('show');
+  });
+  overlay.addEventListener('click', function() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+  });
+})();
+
+// 滚动进度条
+window.addEventListener('scroll', function() {
+  var h = document.documentElement;
+  var pct = (h.scrollHeight - h.clientHeight) > 0
+    ? (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100 : 0;
+  document.getElementById('progressBar').style.width = pct + '%';
+});
+
+// 回到顶部
+(function() {
+  var btn = document.getElementById('backTopBtn');
+  btn.addEventListener('click', function() { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  window.addEventListener('scroll', function() {
+    var v = window.scrollY > 400;
+    btn.style.opacity = v ? '1' : '0';
+    btn.style.pointerEvents = v ? 'auto' : 'none';
+  });
+})();
+
+// 侧边栏导航滚动位置保持
+(function() {
+  var nav = document.querySelector('.sidebar-nav');
+  if (!nav) return;
+  var saved = sessionStorage.getItem('sbScrollTop');
+  if (saved !== null) nav.scrollTop = parseInt(saved);
+  window.addEventListener('beforeunload', function() { sessionStorage.setItem('sbScrollTop', nav.scrollTop); });
+  nav.addEventListener('click', function(e) {
+    if (e.target.closest('.nav-item')) sessionStorage.setItem('sbScrollTop', nav.scrollTop);
+  });
+})();
+
+// 搜索
+function doSearch(e) {
+  e.preventDefault();
+  var q = document.getElementById('searchInput').value.trim();
+  if (!q) { document.getElementById('searchInput').focus(); return false; }
+  window.location.href = '/search?q=' + encodeURIComponent(q);
+  return false;
+}
+
+// 登录逻辑
+var params = new URLSearchParams(location.search);
+var redirectTo = params.get('redirect') || '/';
+async function doLogin(e) {
+  e.preventDefault();
+  var u = document.getElementById('username').value;
+  var p = document.getElementById('password').value;
+  var err = document.getElementById('error');
+  try {
+    var r = await fetch('/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    if (!r.ok) { var d = await r.json(); throw new Error(d.detail || '登录失败'); }
+    location.href = redirectTo;
+  } catch(ex) { err.textContent = ex.message; err.classList.add('active'); }
+}
+</script>
+</body>
+</html>

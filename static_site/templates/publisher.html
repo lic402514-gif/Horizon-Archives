@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-hero">
+    <h2>{{ publisher.name }}</h2>
+    {% if publisher.address %}<p>地址: {{ publisher.address }}</p>{% endif %}
+</div>
+
+{% if books %}
+<section>
+    <h3 class="section-title" style="margin-bottom:16px;">出版图书 ({{ books|length }})</h3>
+    <table class="book-list">
+        <thead>
+            <tr><th>书名</th><th>作者</th><th>出版年份</th></tr>
+        </thead>
+        <tbody>
+            {% for book in books %}
+            <tr>
+                <td><a href="{{ base_path }}/book/{{ book.id }}.html">{{ book.title }}</a></td>
+                <td>{{ book.author.name if book.author else '-' }}</td>
+                <td>{{ book.pub_year or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% else %}
+<div class="content-card"><p>暂无图书。</p></div>
+{% endif %}
+
+{% endblock %}

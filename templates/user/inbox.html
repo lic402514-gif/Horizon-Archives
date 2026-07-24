@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>信箱</title>
+<script src="/static/theme-dawn-v2.js"></script>
+<style>
+:root { --green: #2e7d32; --light: #e8f5e9; --border: #a5d6a7; --bg: #f4faf5; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); min-height: 100vh; }
+.topbar { background: #fff; border-bottom: 1px solid #dcebdc; padding: 10px 24px; display: flex; align-items: center; gap: 16px; }
+.topbar .back { color: var(--green); text-decoration: none; font-size: 14px; font-weight: 600; }
+.topbar .user { margin-left: auto; font-size: 13px; color: #4c8b5b; }
+.content { max-width: 800px; margin: 20px auto; padding: 0 20px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid #e0e8e0; }
+.tab { padding: 8px 20px; cursor: pointer; font-size: 14px; color: #6b7d6b; border: none; background: none; font-family: inherit; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: .15s; }
+.tab:hover { color: var(--green); }
+.tab.active { color: var(--green); font-weight: 700; border-bottom-color: #43a047; }
+.tab .badge { display: inline-block; background: #c62828; color: #fff; font-size: 11px; padding: 1px 7px; border-radius: 10px; margin-left: 6px; vertical-align: top; }
+.msg-item { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: #fff; border: 1px solid #dcebdc; border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: .15s; }
+.msg-item:hover { border-color: var(--border); box-shadow: 0 2px 8px rgba(46,125,50,0.05); }
+.msg-item.unread { border-left: 3px solid #43a047; background: #fafffa; font-weight: 600; }
+.msg-avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg,#e8f5e9,#a5d6a7); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--green); font-size: 15px; flex-shrink: 0; }
+.msg-info { flex: 1; min-width: 0; }
+.msg-info .name { font-size: 14px; color: #1b5e20; }
+.msg-info .subject { font-size: 13px; color: #2f3b2f; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-info .preview { font-size: 12px; color: #8d9f8d; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-meta { text-align: right; flex-shrink: 0; }
+.msg-meta .date { font-size: 11px; color: #a5b8a5; }
+.compose-form { background: #fff; border: 1px solid #dcebdc; border-radius: 12px; padding: 20px; }
+.compose-form input, .compose-form textarea { width: 100%; padding: 10px 14px; border: 1px solid #dcebdc; border-radius: 8px; font-size: 13px; font-family: inherit; margin-bottom: 12px; outline: none; }
+.compose-form input:focus, .compose-form textarea:focus { border-color: #43a047; }
+.compose-form textarea { min-height: 150px; resize: vertical; }
+.msg-detail { background: #fff; border: 1px solid #dcebdc; border-radius: 12px; padding: 24px; }
+.msg-detail h3 { font-size: 18px; color: #1b5e20; margin-bottom: 8px; }
+.msg-detail .meta { font-size: 12px; color: #8d9f8d; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e8f0e8; }
+.msg-detail .body { font-size: 14px; color: #2f3b2f; line-height: 1.8; white-space: pre-wrap; }
+.empty-state { text-align: center; padding: 60px 20px; color: #8d9f8d; }
+.btn-send { background: linear-gradient(135deg,#66bb6a,#43a047); color: #fff; border: none; padding: 10px 28px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="/" class="back">← 返回首页</a>
+  <span class="user" id="topUser"></span>
+</div>
+<div class="content">
+  <h2 style="color:#1b5e20;margin-bottom:16px">📬 消息中心</h2>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('inbox',this)">收件箱 <span class="badge" id="unreadBadge" style="display:none"></span></button>
+    <button class="tab" onclick="showTab('outbox',this)">发件箱</button>
+    <button class="tab" onclick="showTab('compose',this)">写邮件</button>
+    <button class="tab" onclick="showTab('notifications',this)">通知 <span class="badge" id="notifBadge" style="display:none"></span></button>
+  </div>
+  <div id="tab-content"></div>
+</div>
+
+<script>
+fetch('/api/me',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).then(function(u){
+  if(!u||!u.username){location.href='/login?redirect=/user/inbox';return}
+  document.getElementById('topUser').textContent = u.username;
+});
+
+var currentTab='inbox';
+function showTab(tab,btn){
+  currentTab=tab;
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
+  btn.classList.add('active');
+  if(tab==='inbox')loadInbox();else if(tab==='outbox')loadOutbox();else if(tab==='notifications')loadNotifs();else showCompose();
+}
+function loadInbox(){
+  fetch('/api/messages/inbox',{credentials:'same-origin'}).then(function(r){if(!r.ok){location.href='/login';return}return r.json()}).then(function(d){
+    if(!d)return;var h='';
+    if(!d.rows.length)h='<div class="empty-state">收件箱为空</div>';
+    else d.rows.forEach(function(m){h+='<div class="msg-item'+(m.is_read?'':' unread')+'" onclick="viewMsg('+m.id+')"><div class="msg-avatar">'+(m.sender_name||'?').charAt(0)+'</div><div class="msg-info"><div class="name">'+m.sender_name+'</div><div class="subject">'+m.subject+'</div><div class="preview">'+m.content.slice(0,80)+'</div></div><div class="msg-meta"><div class="date">'+(m.created_at||'').slice(0,16)+'</div></div></div>'});
+    document.getElementById('tab-content').innerHTML=h;
+  });loadUnread();
+}
+function loadOutbox(){
+  fetch('/api/messages/outbox',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(d){
+    var h='';if(!d.rows.length)h='<div class="empty-state">发件箱为空</div>';
+    else d.rows.forEach(function(m){h+='<div class="msg-item" onclick="viewMsg('+m.id+')"><div class="msg-avatar">'+(m.receiver_name||'?').charAt(0)+'</div><div class="msg-info"><div class="name">发给: '+m.receiver_name+'</div><div class="subject">'+m.subject+'</div><div class="preview">'+m.content.slice(0,80)+'</div></div><div class="msg-meta"><div class="date">'+(m.created_at||'').slice(0,16)+'</div></div></div>'});
+    document.getElementById('tab-content').innerHTML=h;
+  });
+}
+function viewMsg(id){
+  fetch('/api/messages/'+id+'/read',{method:'PUT',credentials:'same-origin'});
+  fetch('/api/messages/inbox?page_size=100',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(d){
+    var m=(d.rows||[]).find(function(x){return x.id===id})||{subject:'?',sender_name:'?',content:'',created_at:''};
+    document.getElementById('tab-content').innerHTML='<div class="msg-detail"><h3>'+m.subject+'</h3><div class="meta">发件人: '+m.sender_name+' · '+(m.created_at||'').slice(0,16)+'</div><div class="body">'+m.content+'</div><div style="margin-top:16px"><button class="btn-send" onclick="showTab(\'compose\',document.querySelectorAll(\'.tab\')[2]);document.getElementById(\'msg-to\').value=\''+m.sender_name+'\'">回复</button> <button onclick="deleteMsg('+id+')" style="padding:10px 20px;border:1px solid #c62828;color:#c62828;background:#fff;border-radius:20px;cursor:pointer;font-size:13px">删除</button></div></div>';
+  });
+}
+function showCompose(){
+  document.getElementById('tab-content').innerHTML='<div class="compose-form"><input id="msg-to" placeholder="收件人用户名"><input id="msg-subject" placeholder="主题"><textarea id="msg-content" placeholder="内容..."></textarea><button class="btn-send" onclick="sendMsg()">发送</button><div id="send-status" style="margin-top:8px;font-size:12px"></div></div>';
+}
+function sendMsg(){
+  var to=document.getElementById('msg-to').value.trim(),subj=document.getElementById('msg-subject').value.trim(),content=document.getElementById('msg-content').value.trim();
+  if(!to||!subj||!content){document.getElementById('send-status').textContent='请填写完整';return}
+  fetch('/api/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({receiver_name:to,subject:subj,content:content}),credentials:'same-origin'}).then(function(r){return r.json()}).then(function(d){
+    if(d.id){document.getElementById('send-status').innerHTML='<span style="color:#43a047">发送成功</span>';showTab('outbox',document.querySelectorAll('.tab')[1])}
+    else document.getElementById('send-status').innerHTML='<span style="color:#c62828">发送失败</span>';
+  });
+}
+function deleteMsg(id){if(confirm('删除此邮件？')){fetch('/api/messages/'+id,{method:'DELETE',credentials:'same-origin'}).then(function(){loadInbox()})}}
+function loadNotifs(){
+  fetch('/api/notifications?page_size=50',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(d){
+    var h='';if(!d.rows||!d.rows.length){h='<div class="empty-state">暂无通知</div>'}
+    else d.rows.forEach(function(n){h+='<div class="msg-item'+(n.is_read?'':' unread')+'" onclick="markNotif('+n.id+')"><div class="msg-avatar">🔔</div><div class="msg-info"><div class="name">'+n.title+'</div><div class="subject">'+(n.content||'')+'</div></div><div class="msg-meta"><div class="date">'+(n.created_at||'').slice(0,16)+'</div></div></div>'});
+    document.getElementById('tab-content').innerHTML=h;
+  });
+}
+function markNotif(id){fetch('/api/notifications/'+id+'/read',{method:'POST',credentials:'same-origin'}).then(function(){loadNotifs()})}
+function loadUnread(){
+  fetch('/api/messages/unread-count',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(d){var b=document.getElementById('unreadBadge');if(d.count>0){b.textContent=d.count;b.style.display='inline-block'}else b.style.display='none'});
+  fetch('/api/notifications/unread-count',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(d){var b=document.getElementById('notifBadge');if(d.count>0){b.textContent=d.count;b.style.display='inline-block'}else b.style.display='none'});
+}
+loadInbox();loadUnread();
+</script>
+</body>
+</html>

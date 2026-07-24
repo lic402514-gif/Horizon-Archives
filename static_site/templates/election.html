@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>{{ title }}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Noto Serif SC","Source Han Serif SC",serif;background:#f5faf7;color:#2f3b2f;line-height:1.8}
+.container{max-width:860px;margin:0 auto;padding:2rem 1.5rem}
+header{background:linear-gradient(135deg,#1b5e20,#43a047);padding:2rem 0;color:#fff;text-align:center}
+header h1{font-family:"Playfair Display",serif;font-size:2rem}
+.card{background:#fff;border-radius:12px;padding:1.5rem;margin:1.5rem 0;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+.card h2{color:#1b5e20;margin-bottom:0.8rem}
+.badge{display:inline-block;padding:0.2rem 1rem;border-radius:12px;font-size:0.85rem;margin-top:0.5rem}
+.badge-draft{background:rgba(255,255,255,0.2)}
+.badge-nomination{background:#2196f3;color:#fff}
+.badge-voting{background:#e53935;color:#fff}
+.badge-published{background:#4caf50;color:#fff}
+.badge-archived{background:#9e9e9e;color:#fff}
+.timeline{position:relative;padding-left:2rem;margin:1.5rem 0}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:3px;background:#c8e6c9}
+.timeline-item{position:relative;padding-bottom:1.5rem}
+.timeline-item::before{content:'';position:absolute;left:-2rem;top:4px;width:12px;height:12px;border-radius:50%;background:#43a047;border:3px solid #fff;z-index:1}
+.timeline-item.active::before{background:#e53935;box-shadow:0 0 0 4px rgba(229,57,53,0.3)}
+.timeline-item.past::before{background:#9e9e9e}
+.chart{position:relative;height:220px;border-left:2px solid #333;border-bottom:2px solid #333;margin:2rem 0 3rem}
+.threshold{position:absolute;left:0;right:0;top:0;border-top:2px dashed #e53935;z-index:2}
+.threshold-label{position:absolute;left:-55px;top:-10px;color:#e53935;font-size:0.8rem;font-weight:700}
+.bar{position:absolute;bottom:0;width:15%;border-radius:4px 4px 0 0;z-index:1;text-align:center;color:#fff;font-weight:700;font-size:0.8rem;padding-top:4px;transition:height 0.5s}
+.bar.pass{background:linear-gradient(180deg,#43a047,#2e7d32)}
+.bar.fail{background:linear-gradient(180deg,#ff9800,#f57c00)}
+.bar-label{position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:0.75rem;white-space:nowrap;color:#2f3b2f}
+.btn{padding:0.5rem 1.2rem;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem}
+.btn-primary{background:#43a047;color:#fff} .btn-primary:hover{background:#2e7d32}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
+.form-group{margin-bottom:0.8rem}
+select{border:1px solid #ddd;border-radius:6px;padding:0.4rem;font-size:0.9rem}
+footer{text-align:center;color:#6b7d6b;padding:2rem;font-size:0.9rem}
+a{color:#43a047;text-decoration:none} a:hover{text-decoration:underline}
+@media(max-width:640px){.container{padding:1rem}}
+</style>
+</head>
+<body>
+<header>
+    <h1>{{ election.title }}</h1>
+    {% if election.position %}<p style="font-size:1.1rem;margin-top:0.3rem">🏛 {{ election.position }} · {{ election.seats }} 席位</p>{% endif %}
+    <span class="badge badge-{{ election.status }}">{{ {'draft':'📝 草稿','nomination':'📋 提名中','voting':'🗳 投票中','counting':'🔢 计票中','published':'✅ 结果公布','archived':'📦 已归档'}.get(election.status, election.status) }}</span>
+</header>
+
+<div class="container">
+    <!-- Timeline -->
+    <div class="card">
+        <h2>📅 选举阶段</h2>
+        <div class="timeline">
+            {% set phases=[('draft','草稿'),('nomination','提名'),('voting','投票'),('counting','计票'),('published','公布'),('archived','归档')] %}
+            {% for phase,label in phases %}
+            {% set is_current = election.status == phase %}
+            {% set is_past = phases.index((phase,label)) < phases.index((election.status, '')|first if (election.status, '')|first in ['draft','nomination','voting','counting','published','archived'] else 'draft') %}
+            <div class="timeline-item{% if is_current %} active{% elif not is_past %}{% else %} past{% endif %}">
+                <strong>{{ label }}</strong>
+                {% if is_current %}<span style="color:#e53935;font-size:0.8rem"> ← 当前</span>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Description -->
+    {% if election.content_html %}
+    <div class="card">{{ election.content_html|safe }}</div>
+    {% endif %}
+
+    <!-- Candidates -->
+    {% if election.candidates %}
+    <div class="card">
+        <h2>👥 候选人 ({{ election.candidates|length }})</h2>
+        {% for c in election.candidates %}
+        <div style="padding:0.8rem 0;border-bottom:1px solid #f0faf3">
+            <strong>{{ c.user.username if c.user else c.name }}</strong>
+            {% if c.biography %}<p style="font-size:0.9rem;color:#6b7d6b">{{ c.biography }}</p>{% endif %}
+            {% if c.manifesto %}<div style="margin-top:0.3rem;padding:0.5rem;background:#f0faf3;border-radius:6px;font-size:0.85rem">{{ c.manifesto }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Voting -->
+    {% if election.status == 'voting' %}
+    <div class="card">
+        <h2>🗳 投票</h2>
+        <form id="vote-form">
+            {% for c in election.candidates %}
+            <div style="padding:0.6rem 0;display:flex;align-items:center">
+                {% if election.vote_type == 'approval' %}
+                <input type="checkbox" name="vote" value="{{ c.id }}">
+                {% else %}
+                <input type="radio" name="vote" value="{{ c.id }}">
+                {% endif %}
+                <span style="margin-left:0.8rem">{{ c.user.username if c.user else c.name }}</span>
+            </div>
+            {% endfor %}
+            <button type="button" class="btn btn-primary" onclick="castVote()" style="margin-top:0.8rem">提交投票</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Results -->
+    {% if election.status in ('published','archived') %}
+    <div class="card">
+        <h2>📊 投票结果</h2>
+        {% if election.vote_type == 'absolute_majority' %}
+        <p style="font-size:0.85rem;color:#6b7d6b;margin-bottom:1rem">━━ 红色虚线 = 绝对多数门槛 (50%)</p>
+        {% endif %}
+        <div class="chart" style="height:260px">
+            {% if election.vote_type == 'absolute_majority' %}
+            <div class="threshold-line" style="position:absolute;left:0;right:0;top:0;border-top:2px dashed #e53935;z-index:2"></div>
+            <span class="threshold-label" style="position:absolute;left:-55px;top:-10px;color:#e53935;font-size:0.8rem;font-weight:700">50%</span>
+            {% endif %}
+            {% set max_pct = results|map(attribute='percentage')|max|default(0) %}
+            {% set scale = 100 if max_pct < 20 else (105 if max_pct < 50 else 105) %}
+            {% for r in results %}
+            <div class="bar {% if r.elected %}pass{% else %}fail{% endif %}" style="left:{{ loop.index0 * 22 + 5 }}%;width:16%;height:{{ (r.percentage / scale * 100)|int }}%">
+                <span>{{ r.percentage }}%</span>
+                <div class="bar-label" style="bottom:-22px">{{ r.name[:4] if r.name else '?' }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% for r in results %}
+        <div style="padding:0.5rem 0;border-bottom:1px solid #eee;display:flex;justify-content:space-between">
+            <span>#{{ r.rank }} {{ r.name }}</span>
+            <span>{{ r.vote_count }} 票 ({{ r.percentage }}%) {% if r.elected %}🏆{% endif %}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+<footer>选举系统 · 地平线档案馆（Horizon Archive）</footer>
+
+<script>
+var API='/api';
+function api(p,o){o=o||{};var h={'Content-Type':'application/json'};if(o.body)o.body=JSON.stringify(o.body);
+return fetch(API+'/'+p,{method:o.method||'GET',headers:h,body:o.body,credentials:'same-origin'}).then(function(r){return r.ok?r.json():r.json().then(function(e){throw new Error(e.detail||'Error')})})}
+async function castVote(){
+    var f=document.getElementById('vote-form');
+    var checked=f.querySelectorAll('input:checked');
+    if(!checked.length)return alert('请选择候选人');
+    var isApproval=f.querySelector('input[type=checkbox]')!==null;
+    var body=isApproval?{candidate_ids:Array.from(checked).map(function(c){return parseInt(c.value)})}:{candidate_id:parseInt(checked[0].value)};
+    try{await api('elections/{{ election.id }}/vote',{method:'POST',body:body});alert('投票成功');location.reload()}catch(e){alert(e.message)}
+}
+</script>
+</body>
+</html>

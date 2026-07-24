@@ -1,0 +1,96 @@
+{% extends "admin/base.html" %}
+{% block title %}通知管理{% endblock %}
+{% block main %}
+<div class="page-header"><h1>🔔 通知管理</h1></div>
+
+<div class="card">
+  <h3>发送系统通知</h3>
+  <div class="form-group"><label>标题</label><input id="notifTitle" placeholder="通知标题"></div>
+  <div class="form-group"><label>内容</label><textarea id="notifContent" placeholder="通知内容" rows="2"></textarea></div>
+  <div class="form-group"><label>目标用户 ID（逗号分隔，留空发给所有活跃用户）</label><input id="notifUsers" placeholder="如: 1,2,3"></div>
+  <button class="btn btn-primary" onclick="sendNotification()">发送系统通知</button>
+  <div id="sendResult" style="margin-top:8px;font-size:13px"></div>
+</div>
+
+<div class="card">
+  <h3>群发邮件到信箱</h3>
+  <div class="form-group"><label>邮件标题</label><input id="mailTitle" placeholder="邮件标题"></div>
+  <div class="form-group"><label>邮件内容</label><textarea id="mailContent" placeholder="邮件内容" rows="3"></textarea></div>
+  <div class="form-group"><label>目标用户 ID（逗号分隔，留空发给所有活跃用户）</label><input id="mailUsers" placeholder="如: 1,2,3"></div>
+  <button class="btn btn-primary" onclick="sendMail()">群发邮件</button>
+  <div id="mailResult" style="margin-top:8px;font-size:13px"></div>
+</div>
+
+<div class="card">
+  <h3>通知历史</h3>
+  <table><thead><tr><th>ID</th><th>用户</th><th>标题</th><th>内容</th><th>状态</th><th>时间</th></tr></thead>
+    <tbody id="notifTable"><tr><td colspan="6">加载中...</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+function loadNotifications() {
+  api('/notifications?page_size=100').then(function(data) {
+    if (!data || !data.rows.length) {
+      document.getElementById('notifTable').innerHTML = '<tr><td colspan="6">暂无通知</td></tr>';
+      return;
+    }
+    document.getElementById('notifTable').innerHTML = data.rows.map(function(n) {
+      return '<tr><td>' + n.id + '</td><td>' + n.user_id + '</td><td>' + n.title + '</td><td>' + (n.content||'').slice(0,60) + '</td><td>' + (n.is_read ? '已读' : '未读') + '</td><td>' + (n.created_at||'').slice(0,16) + '</td></tr>';
+    }).join('');
+  }).catch(function() {});
+}
+
+function sendMail() {
+  var title = document.getElementById('mailTitle').value.trim();
+  var content = document.getElementById('mailContent').value.trim();
+  var userStr = document.getElementById('mailUsers').value.trim();
+  if (!title || !content) return;
+  var userIds = userStr ? userStr.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n); }) : [];
+
+  api('/users').then(function(users) {
+    var ids = userIds.length ? userIds : users.filter(function(u) { return u.status === 'ACTIVE'; }).map(function(u) { return u.id; });
+    var promises = ids.map(function(uid) {
+      return api('/messages', { method: 'POST', body: { receiver_id: uid, subject: title, content: content } }).catch(function() { return null; });
+    });
+    Promise.all(promises).then(function(results) {
+      var sent = results.filter(function(r) { return r && r.id; }).length;
+      document.getElementById('mailResult').innerHTML = '<span style="color:#16a34a">已发送给 ' + sent + ' 位用户</span>';
+      document.getElementById('mailTitle').value = '';
+      document.getElementById('mailContent').value = '';
+    });
+  }).catch(function() {
+    document.getElementById('mailResult').innerHTML = '<span style="color:#c62828">发送失败</span>';
+  });
+}
+
+function sendNotification() {
+  var title = document.getElementById('notifTitle').value.trim();
+  var content = document.getElementById('notifContent').value.trim();
+  var userStr = document.getElementById('notifUsers').value.trim();
+  if (!title) return;
+  var userIds = userStr ? userStr.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n); }) : [];
+
+  function doSend(ids) {
+    api('/notifications/send', { method: 'POST', body: { user_ids: ids, title: title, content: content } }).then(function(r) {
+      document.getElementById('sendResult').innerHTML = '<span style="color:#16a34a">已发送给 ' + r.created + ' 位用户</span>';
+      document.getElementById('notifTitle').value = '';
+      document.getElementById('notifContent').value = '';
+      loadNotifications();
+    }).catch(function(e) {
+      document.getElementById('sendResult').innerHTML = '<span style="color:#c62828">发送失败: ' + e.message + '</span>';
+    });
+  }
+
+  if (userIds.length === 0) {
+    api('/users').then(function(users) {
+      doSend(users.filter(function(u) { return u.status === 'ACTIVE'; }).map(function(u) { return u.id; }));
+    }).catch(function() { doSend([]); });
+  } else {
+    doSend(userIds);
+  }
+}
+
+loadNotifications();
+</script>
+{% endblock %}

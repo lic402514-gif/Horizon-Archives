@@ -1,0 +1,387 @@
+{% extends "admin/base.html" %}
+{% block title %}元数据助手{% endblock %}
+{% block main %}
+<style>
+.wizard{max-width:780px;margin:0 auto}
+.upload-zone{border:3px dashed #a5d6a7;border-radius:16px;padding:2rem;text-align:center;cursor:pointer;transition:0.2s;background:#fafffa}
+.upload-zone:hover,.upload-zone.dragover{border-color:#43a047;background:#e8f5e9}
+.upload-zone .icon{font-size:3rem}
+.upload-zone .txt{font-size:1rem;color:#2e5e32;font-weight:600}
+.upload-zone .sub{font-size:0.8rem;color:var(--muted);margin-top:0.3rem}
+.upload-zone input{display:none}
+
+.file-list{margin-top:1rem}
+.file-item{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.75rem;background:#f4faf5;border-radius:8px;margin-bottom:0.35rem;font-size:0.85rem}
+.file-item .fn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:#1b5e20}
+.file-item .fs{color:var(--muted);font-size:0.75rem;margin:0 0.75rem;flex-shrink:0}
+.file-item .rm{color:#c62828;cursor:pointer;font-weight:700;padding:0 0.3rem}
+
+.queue-item{border:1px solid var(--border);border-radius:10px;padding:0.75rem;margin-bottom:0.5rem;background:var(--card)}
+.queue-item .q-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.queue-item .q-title{font-weight:600;color:#1b5e20;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.queue-item .q-meta{display:flex;gap:0.5rem;align-items:center;flex-shrink:0;margin-left:0.5rem}
+.queue-item .q-clc{font-size:0.75rem;font-weight:800;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:6px}
+.queue-item .q-status{font-size:0.72rem}
+.queue-item .q-body{display:none;margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--border)}
+.queue-item.open .q-body{display:block}
+.queue-item .q-body input,.queue-item .q-body textarea{width:100%;padding:0.4rem 0.6rem;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;font-family:inherit;margin-bottom:0.35rem}
+.queue-item .q-body textarea{min-height:50px;resize:vertical}
+.queue-item .q-body .r2{display:flex;gap:0.5rem}
+.queue-item .q-body .r2>div{flex:1}
+.q-done .q-title{color:#2e7d32}
+.q-fail .q-title{color:#c62828}
+.q-proc{opacity:0.6}
+
+.btn-big{padding:0.75rem 2rem;font-size:1rem;border-radius:10px}
+.btn-block{display:block;width:100%}
+.status-box{padding:0.75rem;border-radius:8px;margin:0.75rem 0;font-size:0.85rem;text-align:center}
+.status-box.loading{background:#fffbeb;color:#92400e}
+.status-box.done{background:#e8f5e9;color:#2e7d32}
+.status-box.error{background:#fdf0ed;color:#c62828}
+.progress-bar{height:6px;background:var(--border);border-radius:3px;margin-top:0.5rem}
+.progress-bar .fill{height:100%;background:linear-gradient(90deg,#66bb6a,#43a047);border-radius:3px;transition:width 0.3s}
+.summary{display:flex;gap:1rem;justify-content:center;font-size:0.9rem;margin:1rem 0}
+.summary span{font-weight:700}
+</style>
+
+<div class="page-header"><h1>📖 图书入库</h1></div>
+
+<!-- API Key -->
+<div id="key-setup" style="max-width:780px;margin:0 auto 1rem;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem;display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="document.getElementById('key-body').style.display=document.getElementById('key-body').style.display==='none'?'':'none'">
+        <span style="font-weight:600;color:#1b5e20" id="key-status-text">⚙ AI 配置</span>
+        <span style="font-size:0.8rem;color:var(--muted)" id="key-toggle">展开 ▾</span>
+    </div>
+    <div id="key-body" style="display:none;margin-top:0.75rem">
+        <div class="form-group"><label>API Key</label><input type="password" id="api-key-input" placeholder="sk-..."></div>
+        <div class="form-group"><label>API 地址</label><input type="text" id="api-base-input" placeholder="https://api.openai.com/v1"></div>
+        <div class="form-group"><label>模型</label><input type="text" id="api-model-input" placeholder="gpt-4o-mini"></div>
+        <div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem">国内可用：DeepSeek → api.deepseek.com/v1 | 硅基流动 → api.siliconflow.cn/v1</div>
+        <button class="btn btn-primary btn-sm" onclick="saveApiKey()">保存</button>
+        <span id="key-msg" style="font-size:0.8rem;margin-left:0.5rem"></span>
+    </div>
+</div>
+
+<div class="wizard">
+    <!-- Upload Zone -->
+    <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="icon">📤</div>
+        <div class="txt">点击或拖拽上传图书文件（可多选）</div>
+        <div class="sub">支持 PDF、EPUB、MOBI、DJVU、TXT — 批量处理</div>
+        <input type="file" id="file-input" accept=".pdf,.epub,.mobi,.azw3,.djvu,.txt" multiple onchange="addFiles(this.files)">
+    </div>
+
+    <!-- Pending file list -->
+    <div class="file-list" id="file-list"></div>
+
+    <!-- Action buttons -->
+    <div id="action-bar" style="display:none;margin-top:1rem">
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
+            <input type="text" id="batch-hint" placeholder="补充说明（可选，应用于所有文件）" style="flex:1;padding:0.5rem 0.75rem;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;outline:none">
+        </div>
+        <button class="btn btn-primary btn-big btn-block" id="btn-extract" onclick="batchExtract()">
+            🤖 全部 AI 识别（<span id="file-count">0</span> 本）
+        </button>
+        <div id="extract-status"></div>
+    </div>
+
+    <!-- Queue (results) -->
+    <div id="queue" style="margin-top:1rem"></div>
+
+    <!-- Batch publish -->
+    <div id="batch-bar" style="display:none;margin-top:1rem">
+        <button class="btn btn-success btn-big btn-block" onclick="batchPublish()">
+            ✅ 一键全部入库（<span id="ready-count">0</span> 本）
+        </button>
+        <button class="btn btn-outline btn-block" onclick="resetAll()" style="margin-top:0.5rem">↻ 清空重来</button>
+        <div id="batch-status"></div>
+    </div>
+
+    <!-- Summary -->
+    <div id="summary" style="display:none"></div>
+</div>
+
+<script>
+let pendingFiles = [];  // File objects not yet processed
+let queueItems = [];   // {file, fileData, metadata, status:'pending'|'done'|'fail', error?}
+
+// Drag & drop
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    if(e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+});
+
+function addFiles(files){
+    for(const f of files){
+        if(f.size > 500*1024*1024){ toast(f.name+' 超过500MB，跳过', 'error'); continue; }
+        pendingFiles.push(f);
+    }
+    renderFileList();
+}
+
+function removeFile(idx){
+    pendingFiles.splice(idx, 1);
+    renderFileList();
+}
+
+function renderFileList(){
+    const div = document.getElementById('file-list');
+    if(!pendingFiles.length){ div.innerHTML=''; document.getElementById('action-bar').style.display='none'; return; }
+    document.getElementById('action-bar').style.display = '';
+    document.getElementById('file-count').textContent = pendingFiles.length;
+    div.innerHTML = pendingFiles.map((f,i) =>
+        `<div class="file-item"><span class="fn">${f.name}</span><span class="fs">${(f.size/1024/1024).toFixed(1)}MB</span><span class="rm" onclick="removeFile(${i})">✕</span></div>`
+    ).join('');
+}
+
+async function batchExtract(){
+    if(!pendingFiles.length) return;
+    const status = document.getElementById('extract-status');
+    const btn = document.getElementById('btn-extract');
+    btn.disabled = true;
+
+    const total = pendingFiles.length;
+    const files = [...pendingFiles];
+    pendingFiles = [];
+    renderFileList();
+
+    status.innerHTML = `<div class="status-box loading">⏳ 正在识别 0/${total}...</div>
+        <div class="progress-bar"><div class="fill" id="prog-fill" style="width:0%"></div></div>`;
+
+    for(let i=0; i<files.length; i++){
+        const f = files[i];
+        status.innerHTML = `<div class="status-box loading">⏳ 正在识别 ${i+1}/${total}：${f.name.substring(0,50)}...</div>
+            <div class="progress-bar"><div class="fill" id="prog-fill" style="width:${((i)/total*100)|0}%"></div></div>`;
+
+        const item = {file: f, fileData: null, metadata: null, status: 'processing'};
+        queueItems.push(item);
+        renderQueue();
+
+        const fd = new FormData();
+        fd.append('file', f);
+        fd.append('hint', document.getElementById('batch-hint').value.trim());
+
+        try {
+            const r = await fetch('/api/metadata/extract-upload', {method:'POST',body:fd,credentials:'same-origin'});
+            if(!r.ok){ const e=await r.json(); throw new Error(e.detail); }
+            const data = await r.json();
+            item.fileData = data._file;
+            item.metadata = data;
+            item.status = 'done';
+        } catch(e){
+            item.status = 'fail';
+            item.error = e.message;
+            // Fallback: use filename as title, keep file for later retry
+            const clean = f.name.replace(/\(z-lib[^)]*\)|\.pdf$|\.epub$|\.mobi$/gi,'').replace(/[_\-\s]+/g,' ').trim();
+            item.metadata = {title: clean, author:'', publisher:'', isbn:'', pub_year:null, category_code:'', summary:'', tags:[], confidence:'low', clc_matches:[]};
+            // Keep item.file (File object) for re-upload during publish
+        }
+        // Check duplicates
+        if(item.metadata && item.metadata.title){
+            try {
+                const dc = await api('metadata/check-duplicate', {method:'POST', body:{title: item.metadata.title, isbn: item.metadata.isbn||''}});
+                item.duplicate = dc;
+            } catch(e){}
+        }
+        renderQueue();
+    }
+
+    status.innerHTML = '';
+    btn.disabled = false;
+    updateBatchBar();
+    renderQueue();
+}
+
+function renderQueue(){
+    const div = document.getElementById('queue');
+    div.innerHTML = queueItems.map((item, idx) => {
+        const m = item.metadata || {};
+        const cls = item.status==='done'?'q-done':item.status==='fail'?'q-fail':item.status==='processing'?'q-proc':'';
+        const statusIcon = item.status==='done'?'✅':item.status==='fail'?'❌':item.status==='processing'?'⏳':'⏸';
+        const clcMatch = (m.clc_matches||[]).slice(0,3);
+        return `<div class="queue-item ${cls}${item.status==='done'?' open':''}" id="q-${idx}">
+            <div class="q-header" onclick="toggleQueue(${idx})">
+                <span class="q-title">${statusIcon} ${m.title||item.file.name}</span>
+                <span class="q-meta">
+                    ${m.category_code?`<span class="q-clc">${m.category_code}</span>`:''}
+                    <span style="font-size:0.72rem;color:var(--muted)">${m.author||''}</span>
+                </span>
+            </div>
+            <div class="q-body">
+                <label>书名</label><input value="${(m.title||'').replace(/"/g,'&quot;')}" onchange="queueItems[${idx}].metadata.title=this.value">
+                <div class="r2">
+                    <div><label>作者</label><input value="${(m.author||'').replace(/"/g,'&quot;')}" onchange="queueItems[${idx}].metadata.author=this.value"></div>
+                    <div><label>出版社</label><input value="${(m.publisher||'').replace(/"/g,'&quot;')}" onchange="queueItems[${idx}].metadata.publisher=this.value"></div>
+                </div>
+                <div class="r2">
+                    <div><label>CLC 分类号</label><input value="${m.category_code||''}" onchange="queueItems[${idx}].metadata.category_code=this.value" list="clc-datalist"></div>
+                    <div><label>出版年份</label><input type="number" value="${m.pub_year||''}" onchange="queueItems[${idx}].metadata.pub_year=parseInt(this.value)||null"></div>
+                </div>
+                ${clcMatch.length ? `<div style="margin-bottom:0.35rem">${clcMatch.map(c=>`<span class="tag-chip" style="cursor:pointer;margin-right:0.25rem" onclick="queueItems[${idx}].metadata.category_code='${c.code}';renderQueue()">${c.code}</span>`).join('')}</div>` : ''}
+                <label>标签</label><input value="${(m.tags||[]).join(', ')}" onchange="queueItems[${idx}].metadata.tags=this.value.split(/[,，]/).map(s=>s.trim()).filter(Boolean)">
+                ${item.duplicate && item.duplicate.is_duplicate ? `
+                <div style="background:#fff3e0;border:1px solid #f59e0b;border-radius:6px;padding:0.35rem 0.5rem;margin-top:0.35rem;font-size:0.8rem">
+                    ⚠ 可能重复：${item.duplicate.matches.map(m=>`<a href="/book/${m.id}.html" target="_blank">#${m.id} ${m.title}</a>`).join(', ')}
+                </div>`:''}
+                ${item.duplicate && item.duplicate.similar && item.duplicate.similar.length>0 && !item.duplicate.is_duplicate ? `
+                <div style="background:#f4faf5;border:1px solid #a5d6a7;border-radius:6px;padding:0.35rem 0.5rem;margin-top:0.35rem;font-size:0.78rem;color:var(--muted)">
+                    相似书籍：${item.duplicate.similar.map(m=>`${m.title}`).join(', ')}
+                </div>`:''}
+                ${item.error?`<div style="color:#c62828;font-size:0.8rem;margin-top:0.35rem">⚠ ${item.error}</div>`:''}
+                ${item.status==='fail'?`<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();retryItem(${idx})" style="margin-top:0.5rem">🔄 重试</button>`:''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function retryItem(idx){
+    const item = queueItems[idx];
+    if(!item || !item.file) return;
+    item.status = 'processing'; item.error = null;
+    renderQueue();
+    const fd = new FormData();
+    fd.append('file', item.file);
+    try {
+        const r = await fetch('/api/metadata/extract-upload', {method:'POST',body:fd,credentials:'same-origin'});
+        if(!r.ok){ const e=await r.json(); throw new Error(e.detail); }
+        const data = await r.json();
+        item.fileData = data._file;
+        item.metadata = data;
+        item.status = 'done';
+    } catch(e){
+        item.status = 'fail';
+        item.error = e.message;
+    }
+    // Re-check duplicate
+    if(item.metadata && item.metadata.title){
+        try {
+            item.duplicate = await api('metadata/check-duplicate', {method:'POST', body:{title: item.metadata.title, isbn: item.metadata.isbn||''}});
+        } catch(e){}
+    }
+    renderQueue();
+    updateBatchBar();
+}
+
+function toggleQueue(idx){
+    document.getElementById('q-'+idx).classList.toggle('open');
+}
+
+function updateBatchBar(){
+    const ready = queueItems.filter(q => q.status==='done' && q.metadata && q.metadata.title).length;
+    document.getElementById('batch-bar').style.display = queueItems.length>0 ? '' : 'none';
+    document.getElementById('ready-count').textContent = ready;
+}
+
+async function batchPublish(){
+    const ready = queueItems.filter(q => q.metadata && q.metadata.title);
+    if(!ready.length) return toast('没有可入库的项目','error');
+
+    const status = document.getElementById('batch-status');
+    let done=0, fail=0;
+    status.innerHTML = `<div class="status-box loading">⏳ 正在入库 0/${ready.length}...</div>`;
+
+    for(const item of ready){
+        const m = item.metadata;
+        const fd = new FormData();
+        fd.append('title', m.title);
+        fd.append('author', m.author||'');
+        fd.append('publisher', m.publisher||'');
+        fd.append('isbn', m.isbn||'');
+        fd.append('pub_year', String(m.pub_year||''));
+        fd.append('category_code', m.category_code||'');
+        fd.append('summary', m.summary||'');
+        fd.append('tags', (m.tags||[]).join(','));
+
+        // Use existing fileData or re-upload
+        if(item.fileData){
+            fd.append('tmp_path', item.fileData.tmp_path);
+            fd.append('filename', item.fileData.filename);
+            fd.append('file_size', String(item.fileData.size));
+            fd.append('file_ext', item.fileData.ext);
+            fd.append('file_mime', item.fileData.mime||'');
+        } else if(item.file){
+            // Re-upload the file first
+            const ufd = new FormData();
+            ufd.append('file', item.file);
+            try {
+                const ur = await fetch('/api/metadata/extract-upload', {method:'POST',body:ufd,credentials:'same-origin'});
+                if(ur.ok){
+                    const ud = await ur.json();
+                    item.fileData = ud._file;
+                    fd.append('tmp_path', ud._file.tmp_path);
+                    fd.append('filename', ud._file.filename);
+                    fd.append('file_size', String(ud._file.size));
+                    fd.append('file_ext', ud._file.ext);
+                    fd.append('file_mime', ud._file.mime||'');
+                } else {
+                    throw new Error('文件上传失败');
+                }
+            } catch(e){
+                item.error = '重传失败: '+e.message;
+                fail++;
+                renderQueue();
+                continue;
+            }
+        }
+
+        try {
+            const r = await fetch('/api/metadata/create-with-file', {method:'POST',body:fd,credentials:'same-origin'});
+            if(!r.ok){ const e=await r.json(); throw new Error(e.detail); }
+            item.status = 'published';
+            done++;
+        } catch(e){
+            item.error = e.message;
+            fail++;
+        }
+        status.innerHTML = `<div class="status-box loading">⏳ 正在入库 ${done+fail}/${ready.length}（成功 ${done}，失败 ${fail}）...</div>`;
+    }
+
+    status.innerHTML = `<div class="status-box ${fail?'error':'done'}">${fail?'⚠':'✅'} 入库完成：成功 ${done} 本`+(fail?`，失败 ${fail} 本`:'')+'</div>';
+    document.getElementById('summary').style.display = '';
+    document.getElementById('summary').innerHTML = `<div class="summary">
+        <span style="color:#2e7d32">成功 ${done}</span>
+        ${fail?`<span style="color:#c62828">失败 ${fail}</span>`:''}
+    </div>`;
+    renderQueue();
+}
+
+function resetAll(){
+    pendingFiles = [];
+    queueItems = [];
+    document.getElementById('file-input').value = '';
+    document.getElementById('file-list').innerHTML = '';
+    document.getElementById('queue').innerHTML = '';
+    document.getElementById('action-bar').style.display = 'none';
+    document.getElementById('batch-bar').style.display = 'none';
+    document.getElementById('summary').style.display = 'none';
+    document.getElementById('extract-status').innerHTML = '';
+    document.getElementById('batch-status').innerHTML = '';
+}
+
+// API Key management
+async function loadApiConfig(){
+    try{ const c=await api('metadata/config');
+        const s=document.getElementById('key-setup');s.style.display='';
+        const t=document.getElementById('key-status-text');
+        if(c.has_key){t.textContent='⚙ AI 已配置 ('+c.model+')';t.style.color='#2e7d32'}
+        else {t.textContent='⚙ AI 未配置 — 点此设置 API Key';t.style.color='#e65100';document.getElementById('key-body').style.display=''}
+        document.getElementById('api-base-input').value=c.api_base||'https://api.openai.com/v1';
+        document.getElementById('api-model-input').value=c.model||'gpt-4o-mini';
+    }catch(e){}
+}
+async function saveApiKey(){
+    const body={};
+    const k=document.getElementById('api-key-input').value.trim();if(k)body.AI_API_KEY=k;
+    const b=document.getElementById('api-base-input').value.trim();if(b)body.AI_API_BASE=b;
+    const m=document.getElementById('api-model-input').value.trim();if(m)body.AI_MODEL=m;
+    try{await api('metadata/save-key',{method:'POST',body});document.getElementById('key-msg').innerHTML='<span style=\"color:#43a047\">已保存</span>';
+        document.getElementById('key-status-text').textContent='⚙ AI 已配置';document.getElementById('key-status-text').style.color='#2e7d32';
+        document.getElementById('key-body').style.display='none';document.getElementById('api-key-input').value='';
+    }catch(e){document.getElementById('key-msg').innerHTML='<span style=\"color:#c62828\">'+e.message+'</span>'}
+}
+loadApiConfig();
+</script>
+{% endblock %}

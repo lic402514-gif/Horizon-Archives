@@ -1,0 +1,96 @@
+{% extends "admin/base.html" %}
+{% block title %}分类管理{% endblock %}
+{% block main %}
+<div class="page-header"><h1>📂 分类 / 作者 / 出版社 / 标签</h1></div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+    <div class="card">
+        <h3>✍️ 作者 <button class="btn btn-primary btn-sm" style="float:right" onclick="addItem('author')">＋</button></h3>
+        <div id="author-list">加载中...</div>
+    </div>
+    <div class="card">
+        <h3>🏢 出版社 <button class="btn btn-primary btn-sm" style="float:right" onclick="addItem('publisher')">＋</button></h3>
+        <div id="publisher-list">加载中...</div>
+    </div>
+    <div class="card">
+        <h3>🏷️ 标签 <button class="btn btn-primary btn-sm" style="float:right" onclick="addItem('tag')">＋</button></h3>
+        <div id="tag-list">加载中...</div>
+    </div>
+    <div class="card">
+        <h3>📂 分类 <button class="btn btn-primary btn-sm" style="float:right" onclick="addItem('category')">＋</button></h3>
+        <div id="category-list">加载中...</div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="catalog-modal">
+    <div class="modal" style="max-width:450px">
+        <h2 id="catalog-modal-title">新增</h2>
+        <form onsubmit="saveItem(event)">
+            <input type="hidden" id="catalog-type">
+            <div class="form-group"><label>名称 *</label><input type="text" id="catalog-name" required></div>
+            <div class="form-group" id="catalog-bio-group" style="display:none"><label>简介</label><input type="text" id="catalog-bio"></div>
+            <div class="form-group" id="catalog-address-group" style="display:none"><label>地址</label><input type="text" id="catalog-address"></div>
+            <div class="form-group" id="catalog-code-group" style="display:none"><label>分类号 *</label><input type="text" id="catalog-code"></div>
+            <div class="form-group" id="catalog-parent-group" style="display:none"><label>父分类号</label><input type="text" id="catalog-parent"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-outline" onclick="closeModal('catalog-modal')">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+async function loadList(type) {
+    try {
+        const data = await api(`/${type === 'category' ? 'categories' : type+'s'}`);
+        const el = document.getElementById(`${type}-list`);
+        if (type === 'author') {
+            el.innerHTML = data.map(a => `<div style="padding:0.35rem 0;border-bottom:1px solid var(--border);font-size:0.9rem">${a.name} <span style="color:var(--muted);font-size:0.8rem">${a.bio||''}</span></div>`).join('') || '<p style="color:var(--muted)">暂无</p>';
+        } else if (type === 'publisher') {
+            el.innerHTML = data.map(p => `<div style="padding:0.35rem 0;border-bottom:1px solid var(--border);font-size:0.9rem">${p.name} <span style="color:var(--muted);font-size:0.8rem">${p.address||''}</span></div>`).join('') || '<p style="color:var(--muted)">暂无</p>';
+        } else if (type === 'tag') {
+            el.innerHTML = data.map(t => `<span class="tag-chip">${t.name}</span>`).join('') || '<p style="color:var(--muted)">暂无</p>';
+        } else if (type === 'category') {
+            el.innerHTML = data.map(c => `<div style="padding:0.25rem 0;border-bottom:1px solid var(--border);font-size:0.9rem"><strong>${c.code}</strong> ${c.name} ${c.parent_code?`<span style="color:var(--muted)">← ${c.parent_code}</span>`:''}</div>`).join('') || '<p style="color:var(--muted)">暂无</p>';
+        }
+    } catch (e) {
+        document.getElementById(`${type}-list`).innerHTML =
+            `<p style="color:var(--danger)">⚠️ ${e.message} <button class="btn btn-outline btn-sm" onclick="loadList('${type}')">重试</button></p>`;
+    }
+}
+
+function addItem(type) {
+    document.getElementById('catalog-type').value = type;
+    document.getElementById('catalog-modal-title').textContent = '新增' + {author:'作者',publisher:'出版社',tag:'标签',category:'分类'}[type];
+    document.getElementById('catalog-name').value = '';
+    ['catalog-bio-group','catalog-address-group','catalog-code-group','catalog-parent-group'].forEach(g => document.getElementById(g).style.display='none');
+    if (type === 'author') document.getElementById('catalog-bio-group').style.display = 'block';
+    if (type === 'publisher') document.getElementById('catalog-address-group').style.display = 'block';
+    if (type === 'category') {
+        document.getElementById('catalog-code-group').style.display = 'block';
+        document.getElementById('catalog-parent-group').style.display = 'block';
+    }
+    openModal('catalog-modal');
+}
+
+async function saveItem(e) {
+    e.preventDefault();
+    const type = document.getElementById('catalog-type').value;
+    const body = {name: document.getElementById('catalog-name').value};
+    if (type === 'author') body.bio = document.getElementById('catalog-bio').value||null;
+    if (type === 'publisher') body.address = document.getElementById('catalog-address').value||null;
+    if (type === 'category') {
+        body.code = document.getElementById('catalog-code').value;
+        body.parent_code = document.getElementById('catalog-parent').value||null;
+    }
+    await api(`/${type === 'category' ? 'categories' : type+'s'}`, {method:'POST', body});
+    closeModal('catalog-modal');
+    toast('已添加');
+    loadAll();
+}
+
+function loadAll() { ['author','publisher','tag','category'].forEach(loadList); }
+loadAll();
+</script>
+{% endblock %}

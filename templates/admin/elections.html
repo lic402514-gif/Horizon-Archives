@@ -1,0 +1,71 @@
+{% extends "admin/base.html" %}
+{% block title %}选举管理{% endblock %}
+{% block main %}
+<div class="page-header"><h1>🗳🗂 选举管理</h1>
+    <a href="javascript:void(0)" class="btn btn-primary btn-sm" onclick="showCreate()">＋ 新建选举</a>
+</div>
+<div id="election-grid"></div>
+
+<div class="modal-overlay" id="edit-modal"><div class="modal" style="max-width:700px">
+    <h2 id="edit-title">新建选举</h2>
+    <input type="hidden" id="edit-id">
+    <div class="form-group"><label>选举名称 *</label><input type="text" id="edit-title" required></div>
+    <div class="form-group"><label>职位名称</label><input type="text" id="edit-position" placeholder="如: 图书馆委员会委员"></div>
+    <div class="form-group"><label>席位数</label><input type="number" id="edit-seats" value="1" min="1"></div>
+    <div class="form-group"><label>简介</label><textarea id="edit-description" rows="2"></textarea></div>
+    <div class="form-group"><label>详细说明 (Markdown)</label><textarea id="edit-content" rows="6"></textarea></div>
+    <div class="form-group"><label>投票方式</label>
+        <select id="edit-vote-type">
+            <option value="simple_majority">简单多数</option>
+            <option value="absolute_majority">绝对多数</option>
+            <option value="approval">批准投票</option>
+        </select>
+    </div>
+    <div class="form-group"><label>状态</label>
+        <select id="edit-status">
+            <option value="draft">📝 草稿</option><option value="nomination">📋 提名中</option>
+            <option value="voting">🗳 投票中</option><option value="published">✅ 结果公布</option>
+            <option value="archived">📦 已归档</option>
+        </select>
+    </div>
+    <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('edit-modal')">取消</button>
+        <button class="btn btn-primary" onclick="save()">保存</button>
+    </div>
+</div></div>
+
+<script>
+var dg=new DataGrid('election-grid',{columns:[
+    {key:'id',label:'ID'},{key:'title',label:'选举名称'},{key:'position',label:'职位'},
+    {key:'status',label:'状态'},{key:'vote_type',label:'投票方式'},
+    {key:'created_at',label:'创建时间'},
+],deleteUrl:'/api/elections',onDelete:load});
+
+async function load(){
+    var r=await api('elections');
+    r.forEach(function(e){e.status='<span class="status-badge status-'+e.status+'">'+e.status+'</span>'});
+    dg.setData(r);
+}
+
+function showCreate(){
+    document.getElementById('edit-id').value='';document.getElementById('edit-title').textContent='新建选举';
+    ['edit-title','edit-position','edit-seats','edit-description','edit-content'].forEach(function(id){document.getElementById(id).value=''});
+    document.getElementById('edit-status').value='draft';openModal('edit-modal');
+}
+
+async function save(){
+    var id=document.getElementById('edit-id').value;
+    var body={title:document.getElementById('edit-title').value,
+              position:document.getElementById('edit-position').value,
+              seats:parseInt(document.getElementById('edit-seats').value)||1,
+              description:document.getElementById('edit-description').value,
+              content:document.getElementById('edit-content').value,
+              vote_type:document.getElementById('edit-vote-type').value,
+              status:document.getElementById('edit-status').value};
+    if(id){await api('elections/'+id,{method:'PUT',body:body})}
+    else{await api('elections',{method:'POST',body:body})}
+    closeModal('edit-modal');load();toast('已保存');
+}
+load();
+</script>
+{% endblock %}

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>馆藏动态 — 地平线档案馆（Horizon Archive）</title>
+<meta name="description" content="地平线档案馆（Horizon Archive） — 静态数字图书馆">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="reading-progress" id="progressBar"></div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <a href="/index.html" class="sidebar-logo" style="text-decoration:none;">&#128214;</a>
+    <div class="sidebar-brand">
+      <a href="/index.html" style="text-decoration:none;"><div class="sidebar-brand-name">地平线档案馆<br><span class="sidebar-brand-sub">Horizon Archive</span></div></a>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-title">导航</div>
+    <a class="nav-item" href="/index.html"><span class="nav-code">&#127968;</span><span class="nav-label">首页</span></a>
+    <a class="nav-item active" href="/activity"><span class="nav-code">📋</span><span class="nav-label">动态</span></a>
+    <a class="nav-item" href="/articles/"><span class="nav-code">&#128196;</span><span class="nav-label">文章</span></a>
+    <a class="nav-item" href="/issues/"><span class="nav-code">🗳</span><span class="nav-label">议题</span></a>
+    <a class="nav-item" href="/elections/"><span class="nav-code">🏛</span><span class="nav-label">选举</span></a>
+    <a class="nav-item" href="/about.html"><span class="nav-code">I</span><span class="nav-label">关于</span></a>
+    <div class="nav-section-title">CLC 分类浏览</div>
+    {% for cat in categories %}
+    <a class="nav-item" href="/category/{{ cat.code }}.html"><span class="nav-code">{{ cat.code }}</span><span class="nav-label">{{ cat.name }}</span></a>
+    {% endfor %}
+  </nav>
+  <div class="sidebar-footer" onclick="window.location.href='/login'" style="cursor:pointer">
+    <div class="sidebar-avatar">访</div>
+    <div class="sidebar-user-info"><div style="font-weight:700;font-size:13px;color:#1b5e20;">访客</div><div style="font-size:10px;color:#4c8b5b;">未登录</div></div>
+  </div>
+</aside>
+
+<main class="main-content">
+  <div class="topbar">
+    <button class="mobile-menu-btn" id="mobileMenuBtn">&#9776;</button>
+    <form class="search-box" onsubmit="return false" style="display:flex;">
+      <input type="text" placeholder="搜索书名、作者、ISBN…">
+      <button type="submit" class="search-btn">搜索</button>
+    </form>
+    <div class="topbar-actions" id="topbar-auth">
+      <a href="/login" class="btn-login-top" id="btn-login-top">&#128100; 登录</a>
+      <a href="/register" class="btn-register-top" id="btn-register-top">&#9997; 注册</a>
+      <span id="user-display-top" style="display:none"><span id="user-name-top"></span> · <a href="javascript:void(0)" onclick="logout()">退出</a></span>
+    </div>
+  </div>
+
+  <div class="page-hero" style="margin-bottom:24px">
+    <h2 id="page-title">📋 馆藏动态（最近 7 天）</h2>
+    <p>本站管理操作透明公开</p>
+  </div>
+
+  <div id="content" class="section">加载中...</div>
+
+  <div class="main-footer">&copy; 2026 地平线档案馆（Horizon Archive）</div>
+</main>
+
+<div class="quick-float">
+  <button class="float-btn back-top" id="backTopBtn" title="回到顶部">&#8593;</button>
+  <button class="float-btn" onclick="window.location.reload()" title="刷新">&#8635;</button>
+</div>
+
+<script>
+window.addEventListener('scroll',function(){var h=document.documentElement;var pct=(h.scrollHeight-h.clientHeight)>0?(h.scrollTop/(h.scrollHeight-h.clientHeight))*100:0;document.getElementById('progressBar').style.width=pct+'%'});
+document.getElementById('backTopBtn').addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'})});
+window.addEventListener('scroll',function(){var v=window.scrollY>400;var b=document.getElementById('backTopBtn');b.style.opacity=v?'1':'0';b.style.pointerEvents=v?'auto':'none'});
+document.getElementById('mobileMenuBtn').addEventListener('click',function(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebarOverlay').classList.toggle('show')});
+document.getElementById('sidebarOverlay').addEventListener('click',function(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('show')});
+backTopBtn.style.opacity='0';backTopBtn.style.pointerEvents='none';
+
+var path=window.location.pathname;
+if(path.match(/\/activity\/\d{4}-\d{2}-\d{2}/)){loadDay(path.split('/').pop())}else{loadTimeline()}
+
+async function loadTimeline(){
+    var r=await fetch('/api/activity/timeline');var days=await r.json();
+    if(!days.length){document.getElementById('content').innerHTML='<div class=empty>最近 7 天暂无操作记录</div>';return}
+    var h='<div class=timeline>';
+    days.forEach(function(d){var dd=new Date(d.date);h+='<div class=timeline-day><a class=timeline-card href=/activity/'+d.date+'><h3>'+(dd.getMonth()+1)+'月'+dd.getDate()+'日</h3><p>'+d.count+' 条操作</p></a></div>'});
+    h+='</div>';document.getElementById('content').innerHTML=h
+}
+async function loadDay(date){
+    document.getElementById('page-title').innerHTML='<a href=/activity style=color:#1b5e20>← 返回时间轴</a> &nbsp;'+date;
+    var r=await fetch('/api/activity?date='+date);var d=await r.json();
+    if(!d.entries.length){document.getElementById('content').innerHTML='<div class=empty>当天暂无操作记录</div>';return}
+    var h='<ul class=log-list>';
+    d.entries.forEach(function(e){h+='<li class=log-item><span class=log-time>'+e.time+'</span><span class=log-operator>'+e.operator+'</span><span class=log-desc>'+e.description+'</span><span class="log-result '+e.result+'">'+(e.result==='success'?'✅ 成功':'❌ 失败')+'</span></li>'});
+    h+='</ul>';document.getElementById('content').innerHTML=h
+}
+// Check login state for top bar
+(function(){
+    fetch('/api/me',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(u){
+        if(u&&u.username){
+            document.getElementById('btn-login-top').style.display='none';
+            document.getElementById('btn-register-top').style.display='none';
+            var ud=document.getElementById('user-display-top');
+            ud.style.display='inline';
+            document.getElementById('user-name-top').innerHTML='<a href="/profile" style="color:#e8f5e9;text-decoration:none;font-weight:700">👤 '+u.username+'</a>';
+        }
+    }).catch(function(){});
+    function logout(){document.cookie='session=;path=/;max-age=0';location.reload()}
+})();
+</script>
+</body>
+</html>

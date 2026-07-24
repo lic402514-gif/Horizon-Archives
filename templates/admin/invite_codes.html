@@ -1,0 +1,72 @@
+{% extends "admin/base.html" %}
+{% block title %}邀请码管理{% endblock %}
+{% block main %}
+<div class="page-header">
+    <h1>🎫 邀请码管理</h1>
+    <button class="btn btn-primary" onclick="genCode()">＋ 生成邀请码</button>
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+    <h3>重新生成</h3>
+    <div class="form-row">
+        <div class="form-group"><label>备注（给谁）</label><input type="text" id="gen-note" placeholder="如：给李四"></div>
+        <div class="form-group"><label>有效期(天)</label><input type="number" id="gen-expire" value="30"></div>
+        <div class="form-group"><label>可用次数</label><input type="number" id="gen-max" value="1" min="1"></div>
+    </div>
+</div>
+
+<table><thead><tr><th>ID</th><th>邀请码</th><th>备注</th><th>状态</th><th>使用</th><th>有效期</th><th>创建时间</th><th>操作</th></tr></thead>
+<tbody id="table-body"><tr><td colspan="8">加载中...</td></tr></tbody></table>
+
+<div class="modal-overlay" id="gen-modal">
+    <div class="modal" style="text-align:center">
+        <h2>✅ 邀请码已生成</h2>
+        <div style="font-size:2rem;font-weight:700;letter-spacing:0.3rem;padding:1.5rem;background:#f0f9ff;border-radius:8px;margin:1rem 0" id="gen-code"></div>
+        <p style="color:var(--muted)">将此邀请码发送给用户，用户凭此码注册</p>
+        <div class="modal-actions">
+            <button class="btn btn-primary" onclick="copyCode()">📋 复制</button>
+            <button class="btn btn-outline" onclick="closeModal('gen-modal')">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>
+async function loadCodes(){
+    var r=await api('/invite-codes');
+    document.getElementById('table-body').innerHTML=r.map(function(c){
+        var s=c.status==='unused'?'<span class="badge badge-success">可用</span>':
+               c.status==='used'?'<span class="badge badge-info">已使用</span>':
+               '<span class="badge badge-danger">已失效</span>';
+        return '<tr><td>'+c.id+'</td><td><b style="font-family:monospace;font-size:1.1rem">'+c.code+'</b></td><td>'+(c.note||'-')+'</td><td>'+s+'</td><td>'+c.use_count+'/'+c.max_uses+'</td><td>'+(c.expires_at?c.expires_at.substring(0,10):'永久')+'</td><td>'+(c.created_at?c.created_at.substring(0,10):'-')+'</td><td>'+(
+            c.status==='unused'?'<button class="btn btn-danger btn-sm" onclick="expireCc('+c.id+')">作废</button> '+
+            '<button class="btn btn-outline btn-sm" onclick="delCc('+c.id+')">删除</button>':''
+        )+'</td></tr>';
+    }).join('')||'<tr><td colspan="8">暂无邀请码</td></tr>';
+}
+
+async function genCode(){
+    var r=await api('/invite-codes',{method:'POST',body:{note:document.getElementById('gen-note').value,expire_days:parseInt(document.getElementById('gen-expire').value),max_uses:parseInt(document.getElementById('gen-max').value)}});
+    document.getElementById('gen-code').textContent=r.code;
+    document.getElementById('gen-note').value='';
+    openModal('gen-modal');
+    loadCodes();
+}
+
+function copyCode(){
+    var code=document.getElementById('gen-code').textContent;
+    navigator.clipboard.writeText(code).then(function(){toast('Invitation code copied!')});
+}
+
+async function expireCc(id){
+    if(!confirm('Are you sure you want to invalidate this invitation code?'))return;
+    await api('/invite-codes/'+id+'/expire',{method:'POST'});toast('Invalidated');loadCodes();
+}
+
+async function delCc(id){
+    if(!confirm('Delete this invitation code?'))return;
+    await api('/invite-codes/'+id,{method:'DELETE'});toast('Deleted');loadCodes();
+}
+
+loadCodes();
+</script>
+{% endblock %}

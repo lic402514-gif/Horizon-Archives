@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     Hero 横幅
+     ═══════════════════════════════════════════════════════════════════ -->
+<section class="hero" id="heroBanner" style="position:relative;overflow:hidden">
+  <div class="hero-content" style="position:relative;z-index:1">
+    <h1>在书海中<em>思考</em><br>在阅读中<em>成长</em></h1>
+    <p>
+      在这里，<br>
+      每一本书都是一次相遇。
+    </p>
+    <p style="font-size:0.9rem;color:#a5d6a7;margin-top:0.5rem;line-height:1.6">
+      我们整理书籍，<br>
+      记录思想，<br>
+      希望帮助你找到那些<br>
+      值得阅读的文字。
+    </p>
+    <div class="hero-btns">
+      <a href="#clc-section" class="btn-primary">开始探索</a>
+      <a href="{{ base_path }}/category/B.html" class="btn-outline">B 类 · 哲学专区</a>
+      <a href="/register" class="btn-outline" style="background:rgba(255,255,255,0.2);">加入图书馆</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-num" data-count="1">1</div>
+        <div class="hero-stat-label">册藏书</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num" data-count="0">0</div>
+        <div class="hero-stat-label">哲学类 (B)</div>
+      </div>
+    </div>
+  </div>
+  <img src="/api/image/63?w=800&h=500" style="position:absolute;right:0;bottom:0;max-height:100%;max-width:55%;z-index:0;opacity:1;object-fit:contain;object-position:right bottom" alt="">
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     Quote Carousel
+     ═══════════════════════════════════════════════════════════════════ -->
+{% if quotes and quotes|length > 0 %}
+<section class="section" style="padding:0;overflow:hidden;position:relative">
+  <div class="quote-carousel" style="position:relative;min-height:280px;border-radius:12px;overflow:hidden;background:linear-gradient(90deg,#c1dfc5,#deecdd)">
+    {% for q in quotes %}
+    <div class="quote-slide" data-index="{{ loop.index0 }}" style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:3rem 2rem;text-align:center;opacity:{{ '1' if loop.first else '0' }};transition:opacity 0.5s;z-index:{{ '2' if loop.first else '1' }};pointer-events:{{ 'auto' if loop.first else 'none' }};background:linear-gradient(90deg,#c1dfc5,#deecdd)">
+      {% if q.asset_id and q.object_key %}<div style="position:absolute;inset:0;background-image:url('/api/image/{{ q.asset_id }}?w=1200&h=400');background-size:cover;background-position:center;opacity:1;z-index:0"></div>{% endif %}
+      <blockquote style="position:relative;z-index:1;color:#1b5e20;font-family:'Playfair Display','Noto Serif SC',serif;font-size:1.4rem;line-height:1.8;max-width:700px;text-shadow:0 1px 2px rgba(255,255,255,0.5);margin-bottom:1rem">"{{ q.content }}"</blockquote>
+      {% if q.author %}<cite style="color:#2e7d32;font-size:0.95rem;font-style:normal">——{{ q.author }}</cite>{% endif %}
+    </div>
+    {% endfor %}
+    <button class="quote-prev" style="position:absolute;left:1rem;top:50%;transform:translateY(-50%);z-index:10;background:rgba(255,255,255,0.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:1.2rem;backdrop-filter:blur(4px)" onclick="quoteShift(-1)">‹</button>
+    <button class="quote-next" style="position:absolute;right:1rem;top:50%;transform:translateY(-50%);z-index:10;background:rgba(255,255,255,0.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:1.2rem;backdrop-filter:blur(4px)" onclick="quoteShift(1)">›</button>
+    <!-- Dots -->
+    <div style="position:absolute;bottom:1rem;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:0.5rem">
+    {% for q in quotes %}
+      <span class="quote-dot" style="width:8px;height:8px;border-radius:50%;background:{{ 'rgba(255,255,255,0.9)' if loop.first else 'rgba(255,255,255,0.3)' }};cursor:pointer" onclick="quoteGo({{ loop.index0 }})"></span>
+    {% endfor %}
+    </div>
+  </div>
+</section>
+<script>
+var qIdx=0,qTotal={{ quotes|length }};
+function quoteShift(d){qIdx=(qIdx+d+qTotal)%qTotal;quoteGo(qIdx)}
+function quoteGo(i){qIdx=i;document.querySelectorAll('.quote-slide').forEach(function(s,j){s.style.opacity=j===i?'1':'0';s.style.zIndex=j===i?'2':'1';s.style.pointerEvents=j===i?'auto':'none'});document.querySelectorAll('.quote-dot').forEach(function(d,j){d.style.background=j===i?'rgba(255,255,255,0.9)':'rgba(255,255,255,0.3)'})}
+setInterval(function(){quoteShift(1)},5000);
+</script>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     加入图书馆 — 登录/注册入口
+     ═══════════════════════════════════════════════════════════════════ -->
+<section class="section" id="join-section" style="background:linear-gradient(160deg,#f0faf3,#e8f5e9);border-radius:14px;text-align:center">
+  <h2 style="color:#1b5e20">📚 加入我们</h2>
+  <p style="color:#5a8b5a;margin-bottom:1rem">注册账户，获取全文下载权限</p>
+  <a href="/register" class="btn-primary" style="display:inline-block;padding:0.7rem 2rem;border-radius:50px">立即注册</a>
+  <a href="/login" class="btn-outline" style="display:inline-block;padding:0.7rem 2rem;border-radius:50px;margin-left:0.5rem">登录</a>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     CLC 分类导航
+     ═══════════════════════════════════════════════════════════════════ -->
+<section class="section" id="clc-section">
+  <div class="section-header">
+    <h2 class="section-title">CLC 分类导航</h2>
+  </div>
+  <div class="clc-grid">
+    {% for cat in categories %}
+    <a href="{{ base_path }}/category/{{ cat.code }}.html" class="clc-card">
+      <div class="clc-card-code">{{ cat.code }}</div>
+      <div class="clc-card-name">{{ cat.name }}</div>
+      <div class="clc-card-count">{{ cat.count }} 册</div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     New Books
+     ═══════════════════════════════════════════════════════════════════ -->
+{% if books and books|length > 0 %}
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title">新书上架</h2>
+    <a href="{{ base_path }}/category/A.html" class="section-more">查看全部 &#8594;</a>
+  </div>
+  <div class="books-grid" id="newBooksGrid"></div>
+</section>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     Issues
+     ═══════════════════════════════════════════════════════════════════ -->
+{% if issues and issues|length > 0 %}
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title">🗳 议题</h2>
+    <a href="{{ base_path }}/issues/index.html" class="section-more">查看全部 &#8594;</a>
+  </div>
+  <div class="article-list">
+    {% for i in issues %}
+    <a href="{{ base_path }}/issues/{{ i.id }}.html" class="article-item">
+      <div class="article-content"><div class="article-title">{{ i.title }}</div></div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     Elections
+     ═══════════════════════════════════════════════════════════════════ -->
+{% if elections and elections|length > 0 %}
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title">🏛 选举</h2>
+    <a href="{{ base_path }}/elections/index.html" class="section-more">查看全部 &#8594;</a>
+  </div>
+  <div class="article-list">
+    {% for e in elections %}
+    <a href="{{ base_path }}/elections/{{ e.id }}.html" class="article-item">
+      <span class="article-arrow">&#8594;</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     Book Stats
+     ═══════════════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="book-features">
+    <div class="feature-card">
+      <div class="feature-icon">📖</div>
+      <h3>精选藏书</h3>
+      <p>涵盖哲学、文学、心理学核心图书</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔍</div>
+      <h3>精准分类</h3>
+      <p>按中图法精确检索</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💾</div>
+      <h3>资源下载</h3>
+      <p>支持多种电子书格式下载</p>
+    </div>
+  </div>
+</section>
+
+<script>
+// Hide register section if already logged in
+fetch('/api/me',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(u){
+    if(u&&u.username){var el=document.getElementById('join-section');if(el)el.style.display='none'}
+}).catch(function(){});
+</script>
+
+{% endblock %}

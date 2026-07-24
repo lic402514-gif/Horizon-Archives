@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人主页 — 地平线档案馆</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+.profile-wrap { max-width: 860px; margin: 0 auto; padding: 20px; }
+.profile-header-card { background: linear-gradient(135deg, #e8f5e9 0%, #a5d6a7 50%, #81c784 100%); border-radius: 18px; padding: 36px 32px; display: flex; align-items: center; gap: 28px; margin-bottom: 20px; }
+.profile-avatar-large { width: 84px; height: 84px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: #2e7d32; box-shadow: 0 4px 16px rgba(46,125,50,0.15); flex-shrink: 0; }
+.profile-info h2 { font-size: 22px; color: #1b5e20; margin-bottom: 4px; }
+.profile-info .sub { font-size: 13px; color: #4c8b5b; }
+.profile-stats { display: flex; gap: 24px; margin-top: 12px; }
+.profile-stats .stat-item { text-align: center; }
+.profile-stats .stat-num { font-size: 22px; font-weight: 700; color: #1b5e20; }
+.profile-stats .stat-label { font-size: 11px; color: #6b7d6b; margin-top: 2px; }
+.section { margin-bottom: 28px; }
+.section-title { font-size: 15px; font-weight: 700; color: #1b5e20; padding-left: 12px; border-left: 4px solid #43a047; margin-bottom: 12px; }
+.bookshelf-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.bookshelf-card { background: #fff; border: 1px solid #dcebdc; border-radius: 12px; padding: 16px 20px; cursor: pointer; transition: all .2s; min-width: 140px; text-decoration: none; color: inherit; display: block; }
+.bookshelf-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(46,125,50,0.08); border-color: #a5d6a7; }
+.bookshelf-card .sname { font-weight: 700; color: #2e5e32; }
+.bookshelf-card .scount { font-size: 12px; color: #8d9f8d; margin-top: 4px; }
+.comment-item { background: #fff; border: 1px solid #dcebdc; border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; }
+.comment-item .cmeta { font-size: 12px; color: #8d9f8d; margin-bottom: 6px; }
+.comment-item .cmeta a { color: #43a047; text-decoration: none; }
+.comment-item .ctext { font-size: 14px; color: #2f3b2f; line-height: 1.6; }
+.empty-state { text-align: center; padding: 40px; color: #8d9f8d; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="reading-progress" id="progressBar"></div>
+<div class="profile-wrap">
+  <div class="profile-header-card" id="profileHeader">
+    <div class="profile-avatar-large" id="profileAvatar">?</div>
+    <div class="profile-info">
+      <h2 id="profileName"></h2>
+      <div class="sub" id="profileMeta"></div>
+      <div class="profile-stats">
+        <div class="stat-item"><div class="stat-num" id="statBooks">0</div><div class="stat-label">阅读书籍</div></div>
+        <div class="stat-item"><div class="stat-num" id="statComments">0</div><div class="stat-label">短评</div></div>
+        <div class="stat-item"><div class="stat-num" id="statShelves">0</div><div class="stat-label">书架</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">公开书架</div>
+    <div class="bookshelf-row" id="bookshelfList"></div>
+    <div class="empty-state" id="noShelves" style="display:none">暂无公开书架</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">最近短评</div>
+    <div id="commentList"></div>
+    <div class="empty-state" id="noComments" style="display:none">暂无短评</div>
+  </div>
+
+  <div style="text-align:center;margin-top:20px">
+    <a href="/" style="color:#43a047;text-decoration:none;font-size:13px">← 返回首页</a>
+  </div>
+</div>
+
+<script>
+(function() {
+  var path = window.location.pathname;
+  var uid = path.split('/').filter(Boolean).pop();
+  if (!uid || isNaN(uid)) {
+    // Check if logged in - show own profile
+    fetch('/api/me', {credentials:'same-origin'}).then(r => r.ok ? r.json() : null).then(u => {
+      if (u && u.id) loadProfile(u.id, u);
+      else loadProfile(null, null);
+    });
+  } else {
+    loadProfile(parseInt(uid), null);
+  }
+
+  function loadProfile(userId, selfUser) {
+    if (selfUser) {
+      renderProfile(selfUser);
+      loadShelves(selfUser.id);
+      loadComments(selfUser.id, true);
+      return;
+    }
+    if (!userId) { showError(); return; }
+    // Fetch public profile via users API
+    fetch('/api/users/' + userId).then(r => r.ok ? r.json() : null).then(u => {
+      if (u) {
+        renderProfile(u);
+        loadShelves(u.id);
+        loadComments(u.id, false);
+      } else { showError(); }
+    }).catch(showError);
+  }
+
+  function renderProfile(u) {
+    document.getElementById('profileAvatar').textContent = u.username.charAt(0).toUpperCase();
+    document.getElementById('profileName').textContent = u.username;
+    document.getElementById('profileMeta').textContent = '注册于 ' + (u.created_at || '').slice(0, 10);
+  }
+
+  function loadShelves(uid) {
+    fetch('/api/users/' + uid + '/bookshelves').then(r => r.json()).then(shelves => {
+      var html = '';
+      var totalBooks = 0;
+      (shelves||[]).forEach(function(s) {
+        totalBooks += s.book_count || 0;
+        html += '<a class="bookshelf-card" href="/user/bookshelf/' + s.id + '"><div class="sname">' + s.name + '</div><div class="scount">' + (s.book_count||0) + ' 本书</div></a>';
+      });
+      if (html) {
+        document.getElementById('bookshelfList').innerHTML = html;
+        document.getElementById('noShelves').style.display = 'none';
+      } else {
+        document.getElementById('noShelves').style.display = 'block';
+      }
+      document.getElementById('statShelves').textContent = (shelves||[]).length;
+      document.getElementById('statBooks').textContent = totalBooks;
+    });
+  }
+
+  function loadComments(uid, isSelf) {
+    // User's comments are spread across books - we can't easily list them without a dedicated endpoint
+    // For now, show a placeholder
+    document.getElementById('noComments').style.display = 'block';
+    document.getElementById('noComments').textContent = '短评功能已上线，发表短评后将在此展示';
+  }
+
+  function showError() {
+    document.getElementById('profileName').textContent = '用户不存在';
+  }
+})();
+</script>
+<script src="/static/theme-dawn-v2.js"></script>
+</body>
+</html>

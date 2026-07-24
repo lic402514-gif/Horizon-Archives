@@ -1,0 +1,39 @@
+{% extends "admin/base.html" %}
+{% block title %}资源管理{% endblock %}
+{% block main %}
+<div class="page-header">
+    <h1>🗄 资源管理</h1>
+    <label class="btn btn-primary btn-sm" style="cursor:pointer">＋ 上传文件 <input type="file" id="asset-file" multiple accept="*/*" onchange="uploadAssets()" style="display:none"></label>
+</div>
+<div id="asset-grid"></div>
+<script>
+var dg = new DataGrid('asset-grid', {
+    columns: [
+        {key:'id',label:'ID'},
+        {key:'filename',label:'文件名'},
+        {key:'mime_type',label:'类型'},
+        {key:'size',label:'大小'},
+        {key:'asset_type',label:'分类'},
+        {key:'url',label:'URL'},
+    ],
+    deleteUrl: '/api/assets',
+    onDelete: loadAssets
+});
+
+async function loadAssets() {
+    var r = await api('assets/datagrid');
+    dg.setData(r.rows);
+}
+
+async function uploadAssets() {
+    var files = document.getElementById('asset-file').files;
+    for (var i = 0; i < files.length; i++) {
+        var fd = new FormData(); fd.append('file', files[i]); fd.append('asset_type', 'other');
+        await api('assets/upload', {method:'POST',body:fd});
+    }
+    toast('上传完成'); loadAssets();
+    document.getElementById('asset-file').value = '';
+}
+loadAssets();
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-hero">
+    <h2>{{ author.name }}</h2>
+    {% if author.bio %}<p>{{ author.bio }}</p>{% endif %}
+</div>
+
+{% if books %}
+<section>
+    <h3 class="section-title" style="margin-bottom:16px;">作品列表 ({{ books|length }})</h3>
+    <table class="book-list">
+        <thead>
+            <tr><th>书名</th><th>出版社</th><th>出版年份</th><th>分类</th></tr>
+        </thead>
+        <tbody>
+            {% for book in books %}
+            <tr>
+                <td><a href="{{ base_path }}/book/{{ book.id }}.html">{{ book.title }}</a></td>
+                <td>{{ book.publisher.name if book.publisher else '-' }}</td>
+                <td>{{ book.pub_year or '-' }}</td>
+                <td>{% if book.category %}<a href="{{ base_path }}/category/{{ book.category.code }}.html">{{ book.category.code }}</a>{% else %}-{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% else %}
+<div class="content-card"><p>暂无作品。</p></div>
+{% endif %}
+
+{% endblock %}

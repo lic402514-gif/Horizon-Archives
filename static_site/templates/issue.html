@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>{{ title }} - 议题投票</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Noto Serif SC","Source Han Serif SC",serif;background:#f5faf7;color:#2f3b2f;line-height:1.8}
+.container{max-width:860px;margin:0 auto;padding:2rem 1.5rem}
+header{background:linear-gradient(135deg,#1b5e20,#43a047);padding:2rem 0;color:#fff;text-align:center}
+header h1{font-family:"Playfair Display",serif;font-size:2.2rem}
+.tag{display:inline-block;padding:0.2rem 1rem;border-radius:12px;font-size:0.85rem;margin-top:0.5rem}
+.tag-draft{background:rgba(255,255,255,0.2)}
+.tag-discussion{background:#ff9800;color:#fff}
+.tag-voting{background:#e53935;color:#fff}
+.tag-finished{background:#4caf50;color:#fff}
+.tag-archived{background:#9e9e9e;color:#fff}
+.card{background:#fff;border-radius:12px;padding:1.5rem;margin:1.5rem 0;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+.card h2{color:#1b5e20;font-family:"Playfair Display";margin-bottom:0.8rem;font-size:1.4rem}
+.option-item{display:flex;align-items:center;padding:0.8rem 0;border-bottom:1px solid #eee}
+.option-item:last-child{border:none}
+.option-bar{flex:1;margin-left:1rem}
+.option-bar-bg{height:28px;background:#e8f5e9;border-radius:14px;position:relative;overflow:hidden}
+.option-bar-fill{height:100%;background:#43a047;border-radius:14px;transition:width 0.5s}
+.option-bar-label{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:0.85rem;font-weight:600;color:#1b5e20}
+.option-votes{min-width:80px;text-align:right;font-weight:600;font-size:0.9rem}
+.btn{padding:0.6rem 1.5rem;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;font-weight:600;display:inline-block}
+.btn-primary{background:#43a047;color:#fff}
+.btn-primary:hover{background:#2e7d32}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.comment-item{padding:0.8rem 0;border-bottom:1px solid #f0faf3}
+.comment-item .user{font-weight:700;color:#1b5e20}
+.comment-item .time{color:#9e9e9e;font-size:0.8rem}
+.comment-item.reply{margin-left:2rem;border-left:3px solid #c8e6c9;padding-left:1rem}
+textarea,select{width:100%;padding:0.6rem;border:1px solid #ddd;border-radius:8px;font-family:inherit;font-size:0.9rem;margin-top:0.5rem}
+footer{text-align:center;color:#6b7d6b;padding:2rem;font-size:0.9rem}
+a{color:#43a047;text-decoration:none}
+a:hover{text-decoration:underline}
+@media(max-width:640px){.container{padding:1rem}}
+</style>
+</head>
+<body>
+<header>
+    <h1>{{ issue.title }}</h1>
+    <span class="tag tag-{{ issue.status }}">{{ issue.status }}</span>
+</header>
+
+<div class="container">
+    <div class="card">{{ issue.content_html|safe }}</div>
+
+    <!-- Voting -->
+    {% if issue.status == 'voting' %}
+    <div class="card">
+        <h2>🗳 投票</h2>
+        <form id="vote-form">
+            {% for o in issue.options %}
+            <div class="option-item">
+                {% if issue.vote_type == 'approval' %}
+                <input type="checkbox" name="option" value="{{ o.id }}" data-vote-id="{{ o.id }}">
+                {% else %}
+                <input type="radio" name="option" value="{{ o.id }}" data-vote-id="{{ o.id }}">
+                {% endif %}
+                <div style="flex:1;margin-left:0.8rem"><b>{{ o.title }}</b><br><small style="color:#6b7d6b">{{ o.content }}</small></div>
+            </div>
+            {% endfor %}
+            <button type="button" class="btn btn-primary" onclick="vote()" style="margin-top:1rem">提交投票</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Results -->
+    {% if issue.status in ('finished','archived') %}
+    <div class="card">
+        <h2>📊 投票结果</h2>
+        {% for r in results %}
+        <div class="option-item">
+            <b>{{ r.option_title }}</b>
+            <div class="option-bar">
+                <div class="option-bar-bg">
+                    <div class="option-bar-fill" style="width:{{ r.percentage }}%"></div>
+                    <span class="option-bar-label">{{ r.percentage }}%</span>
+                </div>
+            </div>
+            <span class="option-votes">{{ r.vote_count }} 票</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Options list (non-voting phases) -->
+    {% if issue.status in ('draft','discussion') and issue.options %}
+    <div class="card">
+        <h2>📋 方案选项</h2>
+        {% for o in issue.options %}
+        <div class="option-item"><b>{{ o.title }}</b><br><small style="color:#6b7d6b">{{ o.content }}</small></div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Comments -->
+    <div class="card">
+        <h2>💬 讨论 ({{ comments|length }})</h2>
+        <div id="comment-list">
+            {% for c in comments %}
+            <div class="comment-item {% if c.parent_id %}reply{% endif %}">
+                <span class="user">{{ c.user }}</span> <span class="time">{{ c.created_at[:10] }}</span>
+                <p>{{ c.content }}</p>
+                <a href="javascript:void(0)" onclick="replyTo({{ c.id }})" style="font-size:0.8rem">回复</a>
+            </div>
+            {% endfor %}
+        </div>
+        <textarea id="comment-input" rows="3" placeholder="发表意见..."></textarea>
+        <input type="hidden" id="reply-to" value="">
+        <button class="btn btn-primary" onclick="addComment()" style="margin-top:0.5rem">提交评论</button>
+    </div>
+</div>
+<footer>议题投票系统 · 地平线档案馆（Horizon Archive）</footer>
+
+<script>
+function api(p,o){o=o||{};var h={'Content-Type':'application/json'};if(o.body){o.body=JSON.stringify(o.body)}
+return fetch('/api/'+p,{method:o.method||'GET',headers:h,body:o.body,credentials:'same-origin'}).then(function(r){return r.ok?r.json():r.json().then(function(e){throw new Error(e.detail||'Error')})})}
+
+async function vote(){
+    var form=document.getElementById('vote-form');
+    var checked=form.querySelectorAll('input:checked');
+    if(!checked.length)return alert('请选择一个方案');
+    var isApproval=form.querySelector('input[type=checkbox]')!==null;
+    var body=isApproval?{option_ids:Array.from(checked).map(function(c){return parseInt(c.value)})}:{option_id:parseInt(checked[0].value)};
+    try{await api('issues/{{ issue.id }}/vote',{method:'POST',body:body});alert('投票成功');location.reload()}catch(e){alert(e.message)}
+}
+
+function replyTo(cid){document.getElementById('reply-to').value=cid;document.getElementById('comment-input').focus()}
+
+async function addComment(){
+    var content=document.getElementById('comment-input').value.trim();
+    if(!content)return;
+    var body={content:content};if(document.getElementById('reply-to').value)body.parent_id=parseInt(document.getElementById('reply-to').value);
+    await api('issues/{{ issue.id }}/comments',{method:'POST',body:body});
+    location.reload();
+}
+</script>
+</body>
+</html>

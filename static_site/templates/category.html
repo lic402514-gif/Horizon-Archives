@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if breadcrumb %}
+<nav class="breadcrumb">
+    <a href="{{ base_path }}/index.html">首页</a>
+    {% for step in breadcrumb %}
+        {% if loop.last %}
+            <span class="sep">›</span> <strong>{{ step.name }}</strong>
+        {% else %}
+            <span class="sep">›</span> <a href="{{ base_path }}{{ step.url }}">{{ step.name }}</a>
+        {% endif %}
+    {% endfor %}
+</nav>
+{% endif %}
+
+<div class="page-hero">
+    <h2>{{ category.name }} <small style="color:#5a8b5a;font-weight:normal;font-size:0.7em;">({{ category.code }})</small></h2>
+    <p>共 <strong>{{ books|length }}</strong> 本图书{% if children %} · <strong>{{ children|length }}</strong> 个子分类{% endif %}</p>
+</div>
+
+{# Parent back link #}
+{% if parent %}
+<p style="margin-bottom:12px;"><a href="{{ base_path }}/category/{{ parent.code }}.html" class="btn-primary btn-sm">⬅ 返回：{{ parent.name }}</a></p>
+{% endif %}
+
+{# Children sub-categories #}
+{% if children %}
+<div class="sub-category-grid">
+    {% for child in children %}
+    <a href="{{ base_path }}/category/{{ child.code }}.html" class="sub-category-card">
+        <span class="sub-code">{{ child.code }}</span>
+        <span class="sub-name">{{ child.name }}</span>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+{# Books #}
+{% if books %}
+<div class="book-grid">
+    {% for book in books %}
+    <a href="{{ base_path }}/book/{{ book.id }}.html" class="book-item">
+        <div class="book-cover">
+            {% if book.cover_url %}
+            <img src="{{ book.cover_url }}" alt="{{ book.title }}" loading="lazy">
+            {% else %}
+            <div class="book-cover-placeholder">📖</div>
+            {% endif %}
+        </div>
+        <div class="book-info">
+            <h3>{{ book.title }}</h3>
+            <p>{{ book.author.name if book.author else '—' }}</p>
+            <p class="book-meta">{{ book.publisher.name if book.publisher else '—' }}{% if book.pub_year %} · {{ book.pub_year }}{% endif %}</p>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>📭 该分类下暂无图书。</p>
+    {% if children %}
+    <p>请查看上方子分类。</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<style>
+.sub-category-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.5rem;margin:1.5rem 0}
+.sub-category-card{display:flex;align-items:center;gap:0.5rem;padding:0.7rem 1rem;background:#fff;border:1px solid #dcebdc;border-radius:10px;text-decoration:none;color:#2f3b2f;font-size:0.9rem;transition:all 0.15s}
+.sub-category-card:hover{background:#f0faf3;border-color:#43a047;transform:translateY(-1px);box-shadow:0 2px 8px rgba(46,125,50,0.08)}
+.sub-code{padding:0.15rem 0.5rem;background:#e8f5e9;color:#1b5e20;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:50px;text-align:center}
+.sub-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;margin:1.5rem 0}
+.book-item{display:flex;flex-direction:row;gap:0.8rem;padding:0.8rem;background:#fff;border:1px solid #dcebdc;border-radius:10px;text-decoration:none;color:#2f3b2f;transition:all 0.15s}
+.book-item:hover{border-color:#43a047;box-shadow:0 2px 10px rgba(46,125,50,0.08)}
+.book-cover{width:60px;height:84px;border-radius:6px;overflow:hidden;flex-shrink:0;background:#f0faf3}
+.book-cover img{width:100%;height:100%;object-fit:cover}
+.book-cover-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#a5d6a7}
+.book-info h3{font-size:0.92rem;font-weight:600;color:#1b5e20;margin-bottom:0.2rem;line-height:1.3}
+.book-info p{font-size:0.8rem;color:#5a8b5a;margin:0}
+.book-meta{color:#8d9f8d!important;font-size:0.75rem!important}
+.empty-state{text-align:center;padding:3rem;background:#fff;border-radius:12px;color:#6b7d6b;margin-top:1rem}
+.empty-state p{font-size:1.1rem}
+@media(max-width:640px){
+    .sub-category-grid{grid-template-columns:repeat(2,1fr)}
+    .book-grid{grid-template-columns:1fr}
+}
+</style>
+{% endblock %}

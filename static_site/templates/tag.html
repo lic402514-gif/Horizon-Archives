@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-hero">
+    <h2>标签: {{ tag.name }}</h2>
+</div>
+
+{% if books %}
+<section>
+    <h3 class="section-title" style="margin-bottom:16px;">相关图书 ({{ books|length }})</h3>
+    <table class="book-list">
+        <thead>
+            <tr><th>书名</th><th>作者</th><th>分类</th></tr>
+        </thead>
+        <tbody>
+            {% for book in books %}
+            <tr>
+                <td><a href="{{ base_path }}/book/{{ book.id }}.html">{{ book.title }}</a></td>
+                <td>{{ book.author.name if book.author else '-' }}</td>
+                <td>{% if book.category %}<a href="{{ base_path }}/category/{{ book.category.code }}.html">{{ book.category.code }}</a>{% else %}-{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% else %}
+<div class="content-card"><p>暂无相关图书。</p></div>
+{% endif %}
+
+{% endblock %}

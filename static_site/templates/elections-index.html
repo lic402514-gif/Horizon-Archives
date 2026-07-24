@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}选举投票 - 地平线档案馆（Horizon Archive）{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="/">首页</a> / 选举投票</div>
+<h1 style="font-family:'Playfair Display','Noto Serif SC',serif;color:#1b5e20;margin-bottom:1.5rem">🏛 选举投票</h1>
+
+{% if elections %}
+<div class="issue-grid">
+{% for el in elections %}
+<a href="/elections/{{ el.slug }}.html" class="issue-card">
+    <span class="tag tag-{{ el.status }}">{{ {'draft':'草稿','nomination':'提名中','voting':'投票中','counting':'计票中','published':'结果公布','archived':'已归档'}.get(el.status, el.status) }}</span>
+    <h2>{{ el.title }}</h2>
+    {% if el.position %}<p style="color:#6b7d6b">🏛 {{ el.position }} · {{ el.seats }} 席位</p>{% endif %}
+    {% if el.description %}<p>{{ el.description }}</p>{% endif %}
+    <div class="meta">👥 {{ el.candidates|length if el.candidates else 0 }} 候选人 · 创建者: {{ el.creator.username if el.creator else '?' }}</div>
+</a>
+{% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem;color:#6b7d6b"><p>暂无选举活动</p></div>
+{% endif %}
+{% endblock %}

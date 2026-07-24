@@ -1,0 +1,173 @@
+{% extends "admin/base.html" %}
+{% block title %}议题管理{% endblock %}
+{% block main %}
+<div class="page-header"><h1>🗳 议题管理</h1>
+    <a href="javascript:void(0)" class="btn btn-primary btn-sm" onclick="showCreate()">＋ 新建议题</a>
+</div>
+<div id="issue-grid"></div>
+
+<div class="modal-overlay" id="edit-modal"><div class="modal" style="max-width:700px">
+    <h2 id="edit-title">新建议题</h2>
+    <input type="hidden" id="edit-id">
+    <div class="form-group"><label>标题 *</label><input type="text" id="edit-issue-title"></div>
+    <div class="form-group"><label>Slug</label><input type="text" id="edit-slug" placeholder="自动生成"></div>
+    <div class="form-group"><label>摘要</label><textarea id="edit-summary" rows="2"></textarea></div>
+    <div class="form-group"><label>内容 (Markdown)</label><textarea id="edit-content" rows="8"></textarea></div>
+    <div class="form-group"><label>投票类型</label>
+        <select id="edit-vote-type">
+            <option value="simple_majority">简单多数</option>
+            <option value="absolute_majority">绝对多数</option>
+            <option value="approval">批准投票</option>
+        </select>
+    </div>
+    <div class="form-group"><label>状态</label>
+        <select id="edit-status">
+            <option value="draft">草稿</option><option value="discussion">意见征集</option>
+            <option value="voting">投票中</option><option value="finished">已结束</option>
+            <option value="archived">已归档</option>
+        </select>
+    </div>
+    <div class="form-group"><label>方案选项数量</label>
+        <select id="opt-count" onchange="renderOptionInputs()" style="max-width:100px">
+            <option value="0">—</option><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        </select>
+    </div>
+    <div id="options-panel"><div class="form-group"><label>方案 1</label><input type="text" class="opt-title" placeholder="标题"><input type="text" class="opt-desc" placeholder="说明文字" style="margin-top:0.3rem"><label style="margin-top:0.8rem">方案 2</label><input type="text" class="opt-title" placeholder="标题"><input type="text" class="opt-desc" placeholder="说明文字" style="margin-top:0.3rem"></div></div>
+    <div class="form-group" id="actions-group">
+        <button class="btn btn-outline btn-sm" onclick="calculateResult()" style="margin-right:0.5rem">📊 计票</button>
+        <button class="btn btn-success btn-sm" onclick="rebuildSSG()">🔨 重建页面</button>
+    </div>
+    <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('edit-modal')">取消</button>
+        <button class="btn btn-primary" onclick="saveIssue()">保存</button>
+    </div>
+</div></div>
+
+<script>
+var dg=new DataGrid('issue-grid',{
+    columns:[
+        {key:'id',label:'ID'},{key:'title',label:'标题'},{key:'status',label:'状态'},
+        {key:'vote_type',label:'投票类型'},{key:'comment_count',label:'💬'},
+        {key:'vote_count_total',label:'🗳'},{key:'created_at',label:'创建时间'},
+    ],
+    deleteUrl:'/api/issues',
+    onDelete: loadIssues
+});
+
+var allIssues=[];
+
+function renderOptionInputs(){
+    var n=parseInt(document.getElementById('opt-count').value)||0;
+    var h='';
+    for(var i=1;i<=n;i++){
+        h+='<div class="form-group"><label>方案 '+i+'</label>';
+        h+='<input type="text" class="opt-title" placeholder="标题">';
+        h+='<input type="text" class="opt-desc" placeholder="说明文字" style="margin-top:0.3rem">';
+        h+='</div>';
+    }
+    document.getElementById('options-panel').innerHTML=h||'<p style="color:var(--muted)">暂无选项</p>';
+}
+
+async function loadIssues(){
+    var r=await api('issues');
+    allIssues=r;
+    r.forEach(function(i){
+        var labels={draft:'📝 草稿',discussion:'💬 征集中',voting:'🗳 投票中',counting:'📊 计票中',finished:'✅ 已结束',archived:'📦 已归档'};
+        i._status_label=labels[i.status];
+        i._title_link='<a href="javascript:void(0)" onclick="editIssue('+i.id+')">'+i.title+'</a>';
+        i._status_link='<a href="javascript:void(0)" onclick="editIssue('+i.id+')">'+labels[i.status]+'</a>';
+    });
+    dg.setData(r, [
+        {key:'id',label:'ID'},{key:'_title_link',label:'标题'},
+        {key:'_status_link',label:'状态'},{key:'vote_type',label:'投票类型'},
+        {key:'comment_count',label:'💬'},{key:'vote_count_total',label:'🗳'},
+        {key:'created_at',label:'创建时间'},
+    ]);
+}
+
+function showCreate(){
+    document.getElementById('edit-id').value='';editId=null;
+    document.getElementById('edit-title').textContent='新建议题';
+    ['edit-issue-title','edit-slug','edit-summary','edit-content'].forEach(function(id){document.getElementById(id).value=''});
+    document.getElementById('edit-status').value='draft';
+    document.getElementById('edit-vote-type').value='simple_majority';
+    document.getElementById('opt-count').value='2';renderOptionInputs();
+    document.getElementById('actions-group').style.display='none';
+    openModal('edit-modal');
+}
+
+var editId=null;
+
+function editIssue(id){
+    var i=allIssues.find(function(x){return x.id===id});
+    if(!i)return toast('未找到议题','error');
+    editId=i.id;
+    document.getElementById('edit-title').textContent='编辑: '+i.title;
+    document.getElementById('edit-id').value=i.id;
+    document.getElementById('edit-issue-title').value=i.title||'';
+    document.getElementById('edit-slug').value=i.slug||'';
+    document.getElementById('edit-summary').value=i.summary||'';
+    document.getElementById('edit-content').value=i.content||'';
+    document.getElementById('edit-status').value=i.status||'draft';
+    document.getElementById('edit-vote-type').value=i.vote_type||'simple_majority';
+    if(i.options&&i.options.length){
+        document.getElementById('edit-options').value=i.options.map(function(o){return o.title+(o.content?'|'+o.content:'')}).join('\n');
+    }else{
+        document.getElementById('edit-options').value='';
+    }
+    document.getElementById('actions-group').style.display='block';
+    openModal('edit-modal');
+}
+
+async function saveIssue(){
+    var body={
+        title:document.getElementById('edit-issue-title').value,
+        slug:document.getElementById('edit-slug').value||undefined,
+        summary:document.getElementById('edit-summary').value,
+        content:document.getElementById('edit-content').value,
+        vote_type:document.getElementById('edit-vote-type').value,
+        status:document.getElementById('edit-status').value,
+        options: (function(){
+            var titles=document.querySelectorAll('#options-panel .opt-title');
+            var descs=document.querySelectorAll('#options-panel .opt-desc');
+            var arr=[];
+            for(var i=0;i<titles.length;i++){
+                arr.push({title:titles[i].value.trim(),content:descs[i].value.trim()});
+            }
+            return arr.filter(function(o){return o.title});
+        })()
+    };
+    if(editId){
+        // Update issue + sync options
+        await api('issues/'+editId,{method:'PUT',body:body});
+        // Delete old options and re-add
+        var fresh=await api('issues/'+editId);
+        if(fresh.options) fresh.options.forEach(function(o){
+            api('issues/'+editId+'/options/'+o.id,{method:'DELETE'});
+        });
+        for(var i=0;i<body.options.length;i++){
+            await api('issues/'+editId+'/options',{method:'POST',body:body.options[i]});
+        }
+        toast('已保存');
+    }else{
+        var r=await api('issues',{method:'POST',body:body});
+        editId=r.id;toast('已创建');
+    }
+    closeModal('edit-modal');loadIssues();
+}
+
+async function calculateResult(){
+    if(!editId)return;
+    await api('issues/'+editId+'/calculate',{method:'POST'});
+    var i=await api('issues/'+editId);
+    document.getElementById('edit-status').value=i.status||'finished';
+    toast('计票完成');
+}
+
+function rebuildSSG(){
+    toast('SSG 需在终端运行: python -m static_site.generator');
+}
+
+loadIssues();
+</script>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "admin/base.html" %}
+{% block title %}用户管理{% endblock %}
+{% block main %}
+<div class="page-header"><h1>👥 用户管理</h1></div>
+<div id="user-grid"></div>
+
+<!-- Context Menu -->
+<div id="ctx-menu" style="display:none;position:fixed;z-index:999;background:#fff;border:1px solid #dcebdc;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);min-width:140px;padding:0.3rem 0">
+    <div onclick="editUser()" style="padding:0.5rem 1rem;cursor:pointer;font-size:0.85rem" onmouseover="this.style.background='#f0faf3'" onmouseout="this.style.background=''">✏️ 修改</div>
+    <div onclick="dg.batchDelete()" style="padding:0.5rem 1rem;cursor:pointer;font-size:0.85rem;color:#c62828" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">🗑 删除</div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal"><div class="modal" style="max-width:450px">
+    <h2>✏️ 修改用户</h2>
+    <input type="hidden" id="edit-user-id">
+    <div class="form-group"><label>用户名</label><input type="text" id="edit-username"></div>
+    <div class="form-group"><label>邮箱</label><input type="text" id="edit-email"></div>
+    <div class="form-group"><label>角色</label>
+        <select id="edit-role"><option value="user">用户</option><option value="admin">管理员</option></select>
+    </div>
+    <div class="form-group"><label>状态</label>
+        <select id="edit-status"><option value="ACTIVE">正常</option><option value="DISABLED">停用</option><option value="BANNED">封禁</option></select>
+    </div>
+    <div class="form-group"><label>QQ</label><input type="text" id="edit-qq"></div>
+    <div class="form-group"><label>手机</label><input type="text" id="edit-phone"></div>
+    <div class="form-group"><label>微信</label><input type="text" id="edit-wechat"></div>
+    <div class="form-group"><label>公开字段</label>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.3rem" id="edit-public-fields">
+            <label><input type="checkbox" value="username" checked> 用户名</label>
+            <label><input type="checkbox" value="email" checked> 邮箱</label>
+            <label><input type="checkbox" value="role" checked> 角色</label>
+            <label><input type="checkbox" value="qq" checked> QQ</label>
+            <label><input type="checkbox" value="wechat" checked> 微信</label>
+        </div>
+    </div>
+    <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('edit-modal')">取消</button>
+        <button class="btn btn-primary" onclick="saveEdit()">保存</button>
+    </div>
+</div></div>
+
+<script>
+var ctxRow=null;
+
+var dg=new DataGrid('user-grid',{
+    columns:[
+        {key:'id',label:'ID'},{key:'username',label:'用户名'},{key:'email',label:'邮箱'},
+        {key:'role',label:'角色'},{key:'status',label:'状态'},
+        {key:'qq',label:'QQ'},{key:'phone',label:'手机'},{key:'wechat',label:'微信'},
+        {key:'created_at',label:'注册时间'},
+    ],
+    deleteUrl:'/api/users',
+    onDelete:loadUsers
+});
+
+async function loadUsers(){
+    var r=await api('users');
+    r.forEach(function(u){
+        u.status='<span class="badge '+(u.status==='ACTIVE'?'badge-success':'badge-danger')+'">'+u.status+'</span>';
+    });
+    dg.setData(r);
+    // Attach right-click listener
+    setTimeout(function(){
+        document.querySelectorAll('#user-grid table tbody tr').forEach(function(tr, i){
+            tr.oncontextmenu=function(e){
+                e.preventDefault();
+                ctxRow=r.find(function(u){return u.id==dg.rows[i].id});
+                if(!ctxRow)return;
+                var m=document.getElementById('ctx-menu');
+                m.style.display='block';m.style.left=e.clientX+'px';m.style.top=e.clientY+'px';
+            };
+        });
+    },100);
+}
+
+function editUser(){
+    if(!ctxRow)return;
+    document.getElementById('ctx-menu').style.display='none';
+    document.getElementById('edit-user-id').value=ctxRow.id;
+    document.getElementById('edit-username').value=ctxRow.username||'';
+    document.getElementById('edit-email').value=ctxRow.email||'';
+    document.getElementById('edit-role').value=ctxRow.role||'user';
+    document.getElementById('edit-status').value=ctxRow.status.replace(/<[^>]*>/g,'')||'ACTIVE';
+    document.getElementById('edit-qq').value=ctxRow.qq||'';
+    document.getElementById('edit-phone').value=ctxRow.phone||'';
+    document.getElementById('edit-wechat').value=ctxRow.wechat||'';
+    // Populate public fields checkboxes
+    var pf=JSON.parse(ctxRow.public_fields||'["username","email","role","qq","wechat"]');
+    document.querySelectorAll('#edit-public-fields input').forEach(function(cb){cb.checked=pf.includes(cb.value)});
+    openModal('edit-modal');
+}
+
+async function saveEdit(){
+    var id=document.getElementById('edit-user-id').value;
+    var body={
+        username:document.getElementById('edit-username').value,
+        email:document.getElementById('edit-email').value,
+        role:document.getElementById('edit-role').value,
+        status:document.getElementById('edit-status').value,
+        qq:document.getElementById('edit-qq').value,
+        phone:document.getElementById('edit-phone').value,
+        wechat:document.getElementById('edit-wechat').value,
+        public_fields:JSON.stringify(Array.from(document.querySelectorAll('#edit-public-fields input:checked')).map(function(c){return c.value})),
+    };
+    await api('users/'+id,{method:'PUT',body:body});
+    closeModal('edit-modal');loadUsers();toast('已修改');
+}
+
+document.addEventListener('click',function(){document.getElementById('ctx-menu').style.display='none';});
+loadUsers();
+</script>
+{% endblock %}

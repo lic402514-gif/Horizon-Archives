@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>个人主页</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Serif SC',serif;background:#f5faf6;display:flex;justify-content:center;align-items:center;min-height:100vh}
+.card{background:#fff;border-radius:16px;padding:2rem;width:400px;max-width:95vw;box-shadow:0 4px 20px rgba(0,0,0,0.06)}
+h1{color:#1b5e20;margin-bottom:1.5rem;text-align:center}
+.avatar-section{text-align:center;margin-bottom:1.5rem}
+.avatar-section img{width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid #a5d6a7}
+.avatar-placeholder{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#66bb6a,#388e3c);display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:#fff;margin:0 auto;font-weight:700}
+.form-group{margin-bottom:1rem}
+.form-group label{display:block;font-size:0.85rem;color:#5a8b5a;margin-bottom:0.25rem;font-weight:600}
+.form-group input{width:100%;padding:0.6rem 0.8rem;border:1px solid #dcebdc;border-radius:8px;font-size:0.9rem;background:#f5faf6}
+.form-group input:focus{outline:none;border-color:#43a047}
+.form-group input:disabled{background:#e8f5e9;color:#8d9f8d}
+.btn{display:inline-block;padding:0.6rem 1.5rem;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:600}
+.btn-primary{background:#43a047;color:#fff}
+.btn-primary:hover{background:#388e3c}
+.btn-outline{background:#fff;border:1px solid #dcebdc;color:#5a8b5a}
+.actions{display:flex;gap:0.5rem;margin-top:1.5rem;justify-content:flex-end}
+.toast{position:fixed;top:1rem;right:1rem;padding:0.8rem 1.2rem;border-radius:8px;color:#fff;font-size:0.85rem;z-index:999;animation:fadein 0.3s}
+.toast.success{background:#43a047}
+.toast.error{background:#e53935}
+@keyframes fadein{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.pw-section{margin-top:1.5rem;padding-top:1rem;border-top:1px solid #dcebdc}
+.pw-section h3{color:#1b5e20;font-size:0.95rem;margin-bottom:0.5rem}
+</style>
+</head>
+<body>
+<div class="card">
+    <h1>👤 个人主页</h1>
+    <div class="avatar-section">
+        <div id="avatar-preview"></div>
+        <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar()">
+        <a href="javascript:void(0)" onclick="document.getElementById('avatar-input').click()" style="font-size:0.8rem;color:#43a047;margin-top:0.3rem;display:inline-block">更换头像</a>
+    </div>
+    <div class="form-group"><label>用户名</label><input id="prof-username" disabled></div>
+    <div class="form-group"><label>邮箱</label><input id="prof-email"></div>
+    <div class="form-group"><label>QQ</label><input id="prof-qq"></div>
+    <div class="form-group"><label>手机</label><input id="prof-phone"></div>
+    <div class="form-group"><label>微信</label><input id="prof-wechat"></div>
+
+    <div class="pw-section">
+        <h3>修改密码</h3>
+        <div class="form-group"><label>旧密码</label><input type="password" id="pw-old"></div>
+        <div class="form-group"><label>新密码</label><input type="password" id="pw-new"></div>
+    </div>
+
+    <div class="actions">
+        <a href="javascript:history.back()" class="btn btn-outline">返回</a>
+        <button class="btn btn-primary" onclick="save()">保存</button>
+    </div>
+</div>
+
+<script>
+async function init(){
+    var u=await api('/profile');
+    document.getElementById('prof-username').value=u.username;
+    document.getElementById('prof-email').value=u.email||'';
+    document.getElementById('prof-qq').value=u.qq||'';
+    document.getElementById('prof-phone').value=u.phone||'';
+    document.getElementById('prof-wechat').value=u.wechat||'';
+    renderAvatar(u.avatar_asset_id, u.username);
+}
+function renderAvatar(aid, name){
+    var p=document.getElementById('avatar-preview');
+    if(aid){p.innerHTML='<img src="/api/image/'+aid+'" alt="avatar">'}
+    else{p.innerHTML='<div class="avatar-placeholder">'+name.charAt(0).toUpperCase()+'</div>'}
+}
+async function uploadAvatar(){
+    var f=document.getElementById('avatar-input').files[0];
+    if(!f)return;
+    var fd=new FormData();fd.append('file',f);fd.append('asset_type','avatar');
+    var r=await api('/assets/upload',{method:'POST',body:fd});
+    await api('/profile',{method:'PUT',body:{avatar_asset_id:r.id}});
+    renderAvatar(r.id,document.getElementById('prof-username').value);
+    toast('头像已更新');
+}
+async function save(){
+    var body={email:document.getElementById('prof-email').value,qq:document.getElementById('prof-qq').value,
+              phone:document.getElementById('prof-phone').value,wechat:document.getElementById('prof-wechat').value};
+    var op=document.getElementById('pw-old').value;
+    if(op){body.old_password=op;body.password=document.getElementById('pw-new').value}
+    await api('/profile',{method:'PUT',body:body});
+    document.getElementById('pw-old').value='';document.getElementById('pw-new').value='';
+    toast('保存成功');
+}
+function toast(msg,cls){var t=document.createElement('div');t.className='toast '+(cls||'success');t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove()},2500)}
+async function api(path,opts){
+    var r=opts?await fetch('/api'+path,{method:opts.method||'GET',headers:opts.body instanceof FormData?{}:{'Content-Type':'application/json'},body:opts.body instanceof FormData?opts.body:JSON.stringify(opts.body)}):await fetch('/api'+path);
+    if(!r.ok)throw new Error((await r.json()).detail||r.status);
+    return r.json()
+}
+init();
+</script>
+</body>
+</html>
