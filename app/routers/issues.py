@@ -67,6 +67,8 @@ def update_issue(issue_id: int, body: dict, _u: User = Depends(require_permissio
     if "content" in body:
         import markdown
         i.content_html = markdown.markdown(body["content"], extensions=["extra", "codehilite"])
+        from app.sanitize import sanitize_html
+        i.content_html = sanitize_html(i.content_html)
     db.commit(); oplog(db, _u, "issue.update", "issue", str(i.id))
     return _issue_dict(i)
 
@@ -112,7 +114,7 @@ def cast_vote(issue_id: int, body: dict, _u: User = Depends(require_permission("
     if not i: raise HTTPException(404)
     if i.status != "voting": raise HTTPException(400, "Issue not in voting phase")
     from datetime import datetime as dt, timezone
-    if i.vote_end and dt.now(timezone.utc) > i.vote_end: raise HTTPException(400, "Voting has ended")
+    if i.vote_end and dt.now(timezone.utc).replace(tzinfo=None) > i.vote_end: raise HTTPException(400, "Voting has ended")
 
     if i.vote_type == "approval":
         # Multi-select: body.option_ids = [1,2,3]

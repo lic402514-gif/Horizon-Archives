@@ -1,5 +1,5 @@
 """Registration + invite code endpoints."""
-import random, string
+import secrets, string
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
@@ -14,7 +14,8 @@ router = APIRouter(prefix="/api", tags=["register"])
 
 def _gen_code():
     """Generate an 8-character alphanumeric invite code."""
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    chars = string.ascii_uppercase + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(8))
 
 
 # ── Invite Code CRUD (admin) ────────────────────────────────────────────────

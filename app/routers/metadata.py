@@ -20,29 +20,31 @@ AI_API_BASE = os.getenv("AI_API_BASE", "https://api.openai.com/v1")
 AI_MODEL = os.getenv("AI_MODEL", "gpt-4o-mini")
 
 
-def _call_ai(system_prompt: str, user_prompt: str) -> dict:
+async def _call_ai(system_prompt: str, user_prompt: str) -> dict:
     if not AI_API_KEY:
         raise HTTPException(400, "AI 未配置，请在 .env 中设置 AI_API_KEY")
-    import urllib.request as ureq
+    import httpx
+
     body = json.dumps({
         "model": AI_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": 0.3,
+        "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+        "temperature": 0.2,
+        "max_tokens": 2000,
         "response_format": {"type": "json_object"},
-    }).encode()
-    req = ureq.Request(f"{AI_API_BASE}/chat/completions", data=body,
-                       headers={"Content-Type": "application/json", "Authorization": f"Bearer {AI_API_KEY}"})
+    })
     try:
-        with ureq.urlopen(req, timeout=15) as resp:
-            return json.loads(json.loads(resp.read())["choices"][0]["message"]["content"])
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"{AI_API_BASE}/chat/completions",
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {AI_API_KEY}"},
+                content=body,
+            )
+            resp.raise_for_status()
+            return json.loads(json.loads(resp.text)["choices"][0]["message"]["content"])
+    except httpx.TimeoutException:
+        raise HTTPException(500, "AI API 连接超时。请在 .env 中设置可用的 API 地址")
     except Exception as e:
-        msg = str(e)
-        if "timed out" in msg.lower() or "timeout" in msg.lower():
-            raise HTTPException(500, "AI API 连接超时（api.openai.com 在中国无法访问）。请在页面顶部设置可用的 API 地址，如 DeepSeek: https://api.deepseek.com/v1")
-        raise HTTPException(500, f"AI 调用失败: {msg}")
+        raise HTTPException(500, f"AI 调用失败: {e}")
 
 
 SYSTEM_PROMPT = """你是中国图书馆分类法(CLC)编目专家。你的首要任务是根据书名/文件名准确判断该书的CLC分类号。
@@ -255,7 +257,7 @@ def extract_metadata(body: dict, _u: User = Depends(require_permission("book.cre
               "pub_year": None, "category_code": "", "summary": "", "tags": [],
               "confidence": "low", "clc_matches": clc_matches}
     try:
-        ai_result = _call_ai(SYSTEM_PROMPT, f"分析这本书：{query}")
+        ai_result = await _call_ai(SYSTEM_PROMPT, f"分析这本书：{query}")
         result.update(ai_result)
         result["confidence"] = ai_result.get("confidence", "medium")
     except HTTPException:
@@ -339,7 +341,7 @@ async def extract_and_upload(
 
     # Try AI first
     try:
-        ai_result = _call_ai(SYSTEM_PROMPT, query)
+        ai_result = await _call_ai(SYSTEM_PROMPT, query)
         metadata.update(ai_result)
     except HTTPException:
         # AI unavailable — use keyword match for CLC as best guess
@@ -464,6 +466,11 @@ async def create_book_with_file(
     asset = None
     if tmp_path and filename:
         tp = Path(tmp_path)
+        # Restrict to uploads temp directory only
+        uploads_dir = (Path.cwd() / "data" / "uploads").resolve()
+        tp_resolved = tp.resolve()
+        if ".." in str(tp) or not str(tp_resolved).startswith(str(uploads_dir)):
+            raise HTTPException(400, "Invalid file path")
         if tp.exists():
             ext = file_ext or filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
             size = int(file_size) if file_size else tp.stat().st_size

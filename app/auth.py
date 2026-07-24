@@ -17,7 +17,9 @@ from app.database import get_db
 from app.models import User, Role
 
 # ── Config ──────────────────────────────────────────────────────────────────
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY environment variable is required")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))  # 24h
 
@@ -84,16 +86,6 @@ def require_user(current_user: User | None = Depends(get_current_user)) -> User:
     if current_user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return current_user
-
-
-def require_permission(code: str):
-    """Factory: returns a FastAPI dependency that checks a specific permission."""
-    def checker(current_user: User = Depends(require_user)) -> User:
-        if not current_user.has_permission(code):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                detail=f"Missing permission: {code}")
-        return current_user
-    return checker
 
 
 def require_admin(current_user: User = Depends(require_user)) -> User:

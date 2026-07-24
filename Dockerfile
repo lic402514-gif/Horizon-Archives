@@ -12,14 +12,17 @@ COPY app/ ./app/
 COPY static_site/ ./static_site/
 COPY static/ ./static/
 COPY seed_data.py .
+COPY docker-entrypoint.sh .
 
-# Create data dirs
-RUN mkdir -p /app/data/files /app/dist
+# Create data dirs + non-root user
+RUN mkdir -p /app/data/files /app/dist \
+    && useradd -m -u 1000 library \
+    && chown -R library:library /app
+
+USER library
 
 EXPOSE 8000
 
-# Start: init DB, seed, build static site, then run server
-CMD ["sh", "-c", "\
-    python seed_data.py && \
-    python -m static_site.generator && \
-    uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+HEALTHCHECK --interval=30s --timeout=5s CMD curl -f http://127.0.0.1:8000/api/me || exit 1
+
+ENTRYPOINT ["./docker-entrypoint.sh"]

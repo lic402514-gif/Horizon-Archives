@@ -54,9 +54,14 @@ async def upload_file_direct(
         raise HTTPException(status_code=404, detail="Book not found")
 
     # Save to local storage
-    dest = Path(STORAGE_DIR) / oss_key
+    dest = (Path(STORAGE_DIR) / oss_key).resolve()
+    if not str(dest).startswith(str(Path(STORAGE_DIR).resolve())):
+        raise HTTPException(400, "Invalid file path")
     dest.parent.mkdir(parents=True, exist_ok=True)
+    # Size limit: 100MB max
     content = await file.read()
+    if len(content) > 104_857_600:
+        raise HTTPException(400, "File too large (max 100MB)")
     dest.write_bytes(content)
 
     # Record in DB

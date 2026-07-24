@@ -574,3 +574,16 @@ class Message(Base):
 
     sender = relationship("User", foreign_keys=[sender_id], backref="sent_messages")
     receiver = relationship("User", foreign_keys=[receiver_id], backref="received_messages")
+
+
+class Quote(Base):
+    __tablename__ = "quotes"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    content = Column(Text, nullable=False)
+    author = Column(String(100), nullable=True)
+    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=True)
+    sort_order = Column(Integer, default=0)
+    status = Column(String(20), default="active")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    asset = relationship("Asset", foreign_keys=[asset_id])

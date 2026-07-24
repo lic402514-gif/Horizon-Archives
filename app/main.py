@@ -37,8 +37,8 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Personal Library", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
-                   allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("CORS_ORIGIN", "http://localhost:8005")], allow_credentials=True,
+                   allow_methods=["GET","POST","PUT","DELETE"], allow_headers=["Authorization","Content-Type"])
 if STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static-assets")
 
@@ -98,10 +98,12 @@ def me(_r: Request, db: Session = Depends(get_db)):
         return {"username": None}
     try:
         from app.auth import get_current_user, create_access_token
-        user = get_current_user(token, db)
+        user = get_current_user(token=token, db=db)
         return {"username": user.username, "role": user.role, "id": user.id}
     except Exception:
-        return {"username": None}@app.get("/api/oss/sts")
+        return {"username": None}
+
+@app.get("/api/oss/sts")
 def get_sts_token(_u: User = Depends(require_user)):
     """Return STS temporary credentials for OSS direct upload."""
     import json, hmac, hashlib, base64, time
@@ -114,7 +116,7 @@ def get_sts_token(_u: User = Depends(require_user)):
         "expiration": f"{time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(expire))}",
         "conditions": [
             {"bucket": OSS_BUCKET_NAME},
-            ["starts-with", "$key", ""],
+            ["starts-with", "$key", "books/"],
             {"success_action_status": "200"},
         ]
     })
@@ -285,6 +287,7 @@ def track_page_view(path: str = "/", request: Request = None, db: Session = Depe
 @app.get("/{path:path}", response_class=HTMLResponse)
 async def serve_static(path: str):
     if not path: path = "index.html"
+    if ".." in path: raise HTTPException(400, "Invalid path")
     path = path.rstrip("/")
     fp = DIST_DIR / path
     if not fp.suffix:

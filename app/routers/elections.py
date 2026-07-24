@@ -62,6 +62,8 @@ def update_election(election_id: int, body: dict,
     if "content" in body:
         import markdown
         e.content_html = markdown.markdown(body["content"], extensions=["extra","codehilite"])
+        from app.sanitize import sanitize_html
+        e.content_html = sanitize_html(e.content_html)
     db.commit(); oplog(db,_u,"election.update","election",str(e.id))
     return _e_dict(e)
 
@@ -80,7 +82,7 @@ def nominate(election_id: int, body: dict, _u: User = Depends(require_permission
              db: Session = Depends(get_db)):
     e = db.query(Election).filter(Election.id == election_id).first()
     if not e or e.status != "nomination": raise HTTPException(400,"Not in nomination phase")
-    c = ElectionCandidate(election_id=election_id, user_id=_u.id if body.get("self") else body.get("user_id"),
+    c = ElectionCandidate(election_id=election_id, user_id=_u.id,
                           biography=body.get("biography"), manifesto=body.get("manifesto"),
                           status="approved")
     db.add(c); db.commit(); db.refresh(c)
@@ -118,7 +120,7 @@ def cast_election_vote(election_id: int, body: dict,
     e = db.query(Election).filter(Election.id == election_id).first()
     if not e or e.status != "voting": raise HTTPException(400,"Not in voting phase")
     from datetime import datetime as dt, timezone
-    if e.voting_end and dt.now(timezone.utc) > e.voting_end: raise HTTPException(400,"Voting ended")
+    if e.voting_end and dt.now(timezone.utc).replace(tzinfo=None) > e.voting_end: raise HTTPException(400,"Voting ended")
 
     if e.vote_type == "approval":
         oids = body.get("candidate_ids") or [body.get("candidate_id")]

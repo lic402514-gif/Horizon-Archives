@@ -179,6 +179,8 @@ def publish_article(article_id: int, _u: User = Depends(require_permission("arti
     import markdown
     try:
         html_body = markdown.markdown(a.content_md, extensions=["extra", "codehilite"])
+        from app.sanitize import sanitize_html
+        html_body = sanitize_html(html_body)
     except Exception:
         html_body = f"<pre>{a.content_md}</pre>"
 
