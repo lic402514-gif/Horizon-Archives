@@ -86,16 +86,6 @@ def require_user(current_user: User | None = Depends(get_current_user)) -> User:
     return current_user
 
 
-def require_permission(code: str):
-    """Factory: returns a FastAPI dependency that checks a specific permission."""
-    def checker(current_user: User = Depends(require_user)) -> User:
-        if not current_user.has_permission(code):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                detail=f"Missing permission: {code}")
-        return current_user
-    return checker
-
-
 def require_admin(current_user: User = Depends(require_user)) -> User:
     """Legacy: full admin check. Use require_permission for granular checks."""
     if current_user.has_permission("system.config"):

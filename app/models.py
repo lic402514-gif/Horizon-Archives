@@ -122,7 +122,6 @@ class User(Base):
     avatar_asset_id = Column(Integer, ForeignKey("assets.id"), nullable=True)
     token_version = Column(Integer, default=1)
     public_fields = Column(Text, nullable=True)  # JSON array of public field names
-    invite_code_used = Column(String(20), nullable=True)
     has_easter_egg = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

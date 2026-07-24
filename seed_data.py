@@ -269,6 +269,8 @@ def seed():
             ("book.import", "批量导入图书"),
             ("book.export", "导出图书"),
             ("book.batch_update", "批量修改图书"),
+            ("book.publish", "发布/下架图书"),
+            ("book.dedup", "图书去重"),
             ("user.read", "查看用户"),
             ("user.create", "创建/编辑用户"),
             ("user.delete", "删除用户"),
@@ -284,6 +286,17 @@ def seed():
             ("role.create", "创建/编辑角色"),
             ("role.delete", "删除角色"),
             ("permission.assign", "分配权限"),
+            ("article.create", "创建/编辑文章"),
+            ("article.publish", "发布文章"),
+            ("asset.create", "创建资源"),
+            ("asset.delete", "删除资源"),
+            ("election.create", "创建/管理选举"),
+            ("election.vote", "参与选举投票"),
+            ("issue.create", "创建/管理议题"),
+            ("issue.read", "查看议题"),
+            ("issue.vote", "参与议题投票"),
+            ("issue.comment", "评论议题"),
+            ("notification.write", "发送通知"),
         ]
         perm_map = {}
         for code, desc in perm_defs:
